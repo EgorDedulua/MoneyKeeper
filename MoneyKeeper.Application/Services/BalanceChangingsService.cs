@@ -1,0 +1,134 @@
+﻿using MoneyKeeper.Application.Common;
+using MoneyKeeper.Application.Common.Services;
+using MoneyKeeper.Application.Contracts.BalanceChanging;
+using MoneyKeeper.Application.Contracts.Operation;
+using MoneyKeeper.Application.Filters;
+using MoneyKeeper.Application.Sorting;
+using MoneyKeeper.Core.Common;
+using MoneyKeeper.Core.Common.Repositories;
+using MoneyKeeper.Core.Models;
+
+namespace MoneyKeeper.Application.Services
+{
+    public class BalanceChangingsService : IBalanceChangingsService
+    {
+        private readonly IBalanceChangingsRepository _balanceChangingsRepository;
+        private readonly IAccountsRepository _accountsRepository;
+        private readonly IOperationsRepository _operationsRepository;
+        private readonly ITransitionsRepository _transitionsRepository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ICommonBalanceOperationsRepository _commonBalanceOperationsRepository;
+
+        public BalanceChangingsService(IBalanceChangingsRepository balanceChangingsRepository, IOperationsRepository operationsRepository,
+            ITransitionsRepository transitionsRepository, IUnitOfWork unitOfWork, IAccountsRepository accountsRepository, ICommonBalanceOperationsRepository commonBalanceOperationsRepository)
+        {
+            _balanceChangingsRepository = balanceChangingsRepository;
+            _operationsRepository = operationsRepository;
+            _transitionsRepository = transitionsRepository;
+            _unitOfWork = unitOfWork;
+            _accountsRepository = accountsRepository;
+            _commonBalanceOperationsRepository = commonBalanceOperationsRepository;
+        }
+
+        public async Task<Result<BalanceChangingResponse>> Add(BalanceChangingCreationCommand command, CancellationToken cancellationToken)
+        {
+            Account account = (await _accountsRepository.GetByIdAsync(command.AccountId, cancellationToken))!;
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                BalanceChanging balanceChanging = new BalanceChanging
+                {
+                    AccountId = command.AccountId,
+                    OldAccountBalance = account.Balance,
+                    NewAccountBalance = command.NewAccountBalance
+                };
+
+                await _accountsRepository.UpdateBalanceAsync(account.Id, command.NewAccountBalance, cancellationToken);
+                await _balanceChangingsRepository.AddAsync(balanceChanging, cancellationToken);
+                await _unitOfWork.CommitTransactionAsync();
+
+                return Result<BalanceChangingResponse>.Success
+                    (new BalanceChangingResponse(balanceChanging.Id, balanceChanging.AccountId,
+                        balanceChanging.Date, balanceChanging.OldAccountBalance, balanceChanging.NewAccountBalance));
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Result<BalanceChangingResponse>.Failure
+                    (Error.InternalServerError("Неизветсная ошибка при добавлении изменения баланса", ErrorCodes.UNKNOWN_BALANCE_CHANGING_CREATION_ERROR));
+            }
+        }
+
+        public async Task<Result<bool>> Delete(int balanceChangingId, CancellationToken cancellationToken)
+        {
+            BalanceChanging balanceChangingToDelete = (await _balanceChangingsRepository.GetByIdAsync(balanceChangingId, cancellationToken))!;
+            Account account = balanceChangingToDelete.Account;
+
+            if (await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken)
+                || await _transitionsRepository.AreAnySourceTransitionsAfter(account.Id, balanceChangingToDelete.Date, cancellationToken)
+                || await _balanceChangingsRepository.AreAnyAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken))
+            {
+                return Result<bool>.Failure
+                    (Error.UnprocessableEntity($"Невозможно отменить изменение баланса с id {balanceChangingToDelete.Id}, так как после него были потрачены деньги путем изменения баланса " +
+                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.BALANCE_CHANGING_CANCELING_DENIED));
+            }
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                await _balanceChangingsRepository.DeleteAsync(balanceChangingToDelete.Id, cancellationToken);
+                await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(account.Id, balanceChangingToDelete.Date,
+                    balanceChangingToDelete.OldAccountBalance, cancellationToken);
+                await _unitOfWork.CommitTransactionAsync();
+
+                return Result<bool>.Success(true);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Result<bool>.Failure
+                    (Error.InternalServerError("Неизвестная ошибка при удалении изменения баланса", ErrorCodes.UNKNOWN_BALANCE_CHANGING_DELETION_ERROR));
+            }
+        }
+
+        public async Task<Result<PagedResult<BalanceChangingResponse>>> GetAll(BalanceChangingQueryParameters parameters, int userId, CancellationToken cancellationToken)
+        {
+            List<int> userAccountsIds = _accountsRepository
+                .GetAllByUserId(userId)
+                .Select(a => a.Id)
+                .ToList();
+
+            List<int> requestedAccountIds = new List<int>();
+            if (parameters.AccountIds.Any())
+                requestedAccountIds = userAccountsIds.Intersect(parameters.AccountIds).ToList();
+            else
+                requestedAccountIds = userAccountsIds;
+
+            if (!requestedAccountIds.Any())
+                return Result<PagedResult<BalanceChangingResponse>>.Success
+                    (new PagedResult<BalanceChangingResponse>(new List<BalanceChangingResponse>(), 0, parameters.Page, parameters.PageSize));
+
+            BalanceChangingFilter filter = new BalanceChangingFilter
+            {
+                AccountIds = requestedAccountIds,
+                FromDate = parameters.FromDate,
+                ToDate = parameters.ToDate,
+            };
+            
+            IQueryable<BalanceChanging> query = _balanceChangingsRepository.GetAllByUserId(userId);
+            query = filter.ApplyTo(query);
+            query = query.ApplySorting(parameters.SortBy);
+
+            var (items, totalCount) =
+                await _balanceChangingsRepository.GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
+
+            List<BalanceChangingResponse> responseItems = items
+                .Select(b => new BalanceChangingResponse(b.Id, b.AccountId, b.Date, b.OldAccountBalance, b.NewAccountBalance))
+                .ToList();
+
+            return Result<PagedResult<BalanceChangingResponse>>.Success
+                (new PagedResult<BalanceChangingResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
+        }
+    }
+}

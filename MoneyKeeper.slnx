@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MoneyKeeper.Application/MoneyKeeper.Application.csproj" />
+  <Project Path="MoneyKeeper.Core/MoneyKeeper.Core.csproj" />
+  <Project Path="MoneyKeeper.Infrastructure/MoneyKeeper.Infrastructure.csproj" />
+  <Project Path="MoneyKeeper/MoneyKeeper.csproj" />
+</Solution>

@@ -1,0 +1,89 @@
+﻿namespace MoneyKeeper.Application.Common
+{
+    public static class ErrorCodes
+    {
+        public const string USER_ACCESS_DENIED = "USER_ACCESS_DENIED";
+
+        public const string LOGIN_IS_EMPTY = "LOGIN_IS_EMPTY";
+
+        public const string LOGIN_IS_TOO_SHORT = "LOGIN_IS_TOO_SHORT";
+
+        public const string LOGIN_IS_TOO_LONG = "LOGIN_IS_TOO_LONG";
+
+        public const string LOGIN_ALREADY_EXISTS = "LOGIN_ALREADY_EXISTS";
+
+        public const string INVALID_LOGIN_OR_PASSWORD = "INVALID_LOGIN_OR_PASSWORD";
+
+        public const string PASSWORD_IS_EMPTY = "PASSWORD_IS_EMPTY";
+
+        public const string PASSWORD_IS_TOO_SHORT = "PASSWORD_IS_TOO_SHORT";
+
+        public const string PASSWORD_IS_TOO_LONG = "PASSWORD_IS_TOO_LONG";
+
+        public const string NAME_IS_EMPTY = "NAME_IS_EMPTY";
+
+        public const string NAME_IS_TOO_LONG = "NAME_IS_TOO_LONG";
+
+        public const string ACCOUNT_NAME_IS_EMPTY = "ACCOUNT_NAME_IS_EMPTY";
+
+        public const string ACCOUNT_NAME_IS_TOO_LONG = "ACCOUNT_NAME_IS_TOO_LONG";
+
+        public const string ACCOUNT_NAME_ALREADY_EXISTS = "ACCOUNT_NAME_ALREADY_EXISTS";
+
+        public const string ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
+
+        public const string INVALID_ACCOUNT_BALANCE = "INVALID_ACCOUNT_BALANCE";
+
+        public const string INVALID_ACCOUNT_TARGET = "INVALID_ACCOUNT_TARGET";
+
+        public const string ACCOUNT_DESCRIPTION_IS_EMPTY = "ACCOUNT_DESCRIPTION_IS_EMPTY";
+
+        public const string ACCOUNT_DESCRIPTION_IS_TOO_LONG = "ACCOUNT_DESCRIPTION_IS_TOO_LONG";
+
+        public const string CATEGORY_NAME_IS_EMPTY = "CATEGORY_NAME_IS_EMPTY";
+
+        public const string CATEGORY_NAME_IS_TOO_LONG = "CATEGORY_NAME_IS_TOO_LONG";
+
+        public const string CATEGORY_NAME_ALREADY_EXISTS = "CATEGORY_NAME_ALREADY_EXISTS";
+
+        public const string INVALID_CATEGORY_TYPE = "INVALID_CATEGORY_TYPE";
+
+        public const string CATEGORY_DESCRIPTION_IS_EMPTY = "CATEGORY_DESCRIPTION_IS_EMPTY";
+
+        public const string CATEGORY_DESCRIPTION_IS_TOO_LONG = "CATEGORY_DESCRIPTION_IS_TOO_LONG";
+
+        public const string CATEGORY_NOT_FOUND = "CATEGORY_NOT_FOUND";
+
+        public const string INVALID_OPERATION_SUM = "INVALID_OPERATION_SUM";
+
+        public const string OPERATION_NOT_FOUND = "OPERATION_NOT_FOUND";
+
+        public const string OPERATION_DESCRIPTION_IS_EMPTY = "OPERATION_DESCRIPTION_IS_EMPTY";
+
+        public const string OPERATION_DESCRIPTION_IS_TOO_LONG = "OPERATION_DESCRIPTION_IS_TOO_LONG";
+
+        public const string NOT_ENOUGH_MONEY = "NOT_ENOUGH_MONEY";
+
+        public const string UNKNOWN_OPERATION_CREATION_ERROR = "UNKNOWN_OPERATION_CREATION_ERROR";
+
+        public const string OPERATION_CANCELING_DENIED = "OPERATION_CANCELING_DENIED";
+
+        public const string OPERATION_UPDATING_DENIED = "OPERATION_UPDATING_DENIED";
+
+        public const string UNKNOWN_OPERATION_DELETING_ERROR = "UNKNOWN_OPERATION_DELETING_ERROR";
+
+        public const string UNKNOWN_OPERATION_UPDATING_ERROR = "UNKNOWN_OPERATION_UPDATING_ERROR";
+
+        public const string BALANCE_CHANGING_DESCRIPTION_IS_EMPTY = "BALANCE_CHANGING_DESCRIPTION_IS_EMPTY";
+
+        public const string BALANCE_CHANGING_DESCRIPTION_IS_TOO_LONG = "BALANCE_CHANGING_DESCRIPTION_IS_TOO_LONG";
+
+        public const string BALANCE_CHANGING_NOT_FOUND = "BALANCE_CHANGING_NOT_FOUND";
+
+        public const string BALANCE_CHANGING_CANCELING_DENIED = "BALANCE_CHANGING_CANCELING_DENIED";
+
+        public const string UNKNOWN_BALANCE_CHANGING_CREATION_ERROR = "UNKNOWN_BALANCE_CHANGING_CREATION_ERROR";
+
+        public const string UNKNOWN_BALANCE_CHANGING_DELETION_ERROR = "UNKNOWN_BALANCE_CHANGING_DELETION_ERROR";
+    }
+}
