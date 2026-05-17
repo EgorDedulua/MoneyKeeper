@@ -2,6 +2,6 @@
 {
     public interface ITransitionsRepository
     {
-        Task<bool> AreAnySourceTransitionsAfter(int accountId, DateTime date, CancellationToken cancellationToken = default);
+        Task<bool> AreAnySourceTransitionsAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken = default);
     }
 }

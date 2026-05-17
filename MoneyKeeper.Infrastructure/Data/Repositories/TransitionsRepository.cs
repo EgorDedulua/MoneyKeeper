@@ -12,7 +12,7 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
             _db = db;
         }
 
-        public async Task<bool> AreAnySourceTransitionsAfter(int accountId, DateTime date, CancellationToken cancellationToken)
+        public async Task<bool> AreAnySourceTransitionsAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken)
         {
             return await _db.Transitions
                 .AnyAsync(t => t.SourceAccountId == accountId && t.Date > date, cancellationToken);

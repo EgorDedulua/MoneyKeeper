@@ -1,7 +1,6 @@
 ﻿using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
 using MoneyKeeper.Application.Contracts.BalanceChanging;
-using MoneyKeeper.Application.Contracts.Operation;
 using MoneyKeeper.Application.Filters;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
@@ -37,20 +36,15 @@ namespace MoneyKeeper.Application.Services
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                BalanceChanging balanceChanging = new BalanceChanging
+                Result<BalanceChangingResponse> result = await AddBalanceChanging(account, command.NewAccountBalance, cancellationToken);
+                if (!result.IsSuccess)
                 {
-                    AccountId = command.AccountId,
-                    OldAccountBalance = account.Balance,
-                    NewAccountBalance = command.NewAccountBalance
-                };
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return result;
+                }
 
-                await _accountsRepository.UpdateBalanceAsync(account.Id, command.NewAccountBalance, cancellationToken);
-                await _balanceChangingsRepository.AddAsync(balanceChanging, cancellationToken);
                 await _unitOfWork.CommitTransactionAsync();
-
-                return Result<BalanceChangingResponse>.Success
-                    (new BalanceChangingResponse(balanceChanging.Id, balanceChanging.AccountId,
-                        balanceChanging.Date, balanceChanging.OldAccountBalance, balanceChanging.NewAccountBalance));
+                return result;
             }
             catch
             {
@@ -66,7 +60,7 @@ namespace MoneyKeeper.Application.Services
             Account account = balanceChangingToDelete.Account;
 
             if (await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken)
-                || await _transitionsRepository.AreAnySourceTransitionsAfter(account.Id, balanceChangingToDelete.Date, cancellationToken)
+                || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken)
                 || await _balanceChangingsRepository.AreAnyAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken))
             {
                 return Result<bool>.Failure
@@ -124,11 +118,85 @@ namespace MoneyKeeper.Application.Services
                 await _balanceChangingsRepository.GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
             List<BalanceChangingResponse> responseItems = items
-                .Select(b => new BalanceChangingResponse(b.Id, b.AccountId, b.Date, b.OldAccountBalance, b.NewAccountBalance))
+                .Select(b => new BalanceChangingResponse(b.Id, b.AccountId, b.Date, b.OldAccountBalance, b.NewAccountBalance, b.Account.Name))
                 .ToList();
 
             return Result<PagedResult<BalanceChangingResponse>>.Success
                 (new PagedResult<BalanceChangingResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
+        }
+
+        public async Task<Result<BalanceChangingResponse>> Update(BalanceChangingUpdateCommand command, CancellationToken cancellationToken = default)
+        {
+            BalanceChanging balanceChangingToUpdate = (await _balanceChangingsRepository.GetByIdAsync(command.BalanceChangingId))!;
+            Account account = (await _accountsRepository.GetByIdAsync(command.AccountId))!;
+
+            if (await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date, cancellationToken)
+                || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date, cancellationToken)
+                || await _balanceChangingsRepository.AreAnyAfterAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date, cancellationToken))
+            {
+                return Result<BalanceChangingResponse>.Failure
+                    (Error.UnprocessableEntity($"Невозможно отменить изменение баланса с id {command.BalanceChangingId}, так как после него было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
+                        ErrorCodes.BALANCE_CHANGING_UPDATING_DENIED));
+            }
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                if (balanceChangingToUpdate.AccountId != account.Id)
+                {
+                    await _balanceChangingsRepository.DeleteAsync(balanceChangingToUpdate.Id, cancellationToken);
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date, 
+                        balanceChangingToUpdate.OldAccountBalance, cancellationToken);
+                    Result<BalanceChangingResponse> result = await AddBalanceChanging(account, command.NewAccountBalance, cancellationToken);
+                    if (!result.IsSuccess)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return result;
+                    }
+
+                    await _unitOfWork.CommitTransactionAsync();
+                    return result;
+                }
+
+                if (balanceChangingToUpdate.NewAccountBalance != command.NewAccountBalance)
+                {
+                    balanceChangingToUpdate.NewAccountBalance = command.NewAccountBalance;
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date,
+                        balanceChangingToUpdate.NewAccountBalance, cancellationToken);
+                }
+
+                BalanceChanging updatedBalanceChanging =
+                    await _balanceChangingsRepository.UpdateAsync(balanceChangingToUpdate, cancellationToken);
+
+                await _unitOfWork.CommitTransactionAsync();
+
+                return Result<BalanceChangingResponse>.Success
+                    (new BalanceChangingResponse(updatedBalanceChanging.Id, updatedBalanceChanging.AccountId, updatedBalanceChanging.Date,
+                        updatedBalanceChanging.OldAccountBalance, updatedBalanceChanging.NewAccountBalance, updatedBalanceChanging.Account.Name));
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Result<BalanceChangingResponse>.Failure
+                    (Error.InternalServerError("Неизвестная ошибка при обовлении изменения баланса", ErrorCodes.UNKNOWN_BALANCE_UPDATING_DELETION_ERROR));
+            }
+        }
+
+        private async Task<Result<BalanceChangingResponse>> AddBalanceChanging(Account account, decimal newAccountBalance, CancellationToken cancellationToken)
+        {
+            BalanceChanging balanceChanging = new BalanceChanging
+            {
+                AccountId = account.Id,
+                OldAccountBalance = account.Balance,
+                NewAccountBalance = newAccountBalance
+            };
+
+            await _accountsRepository.UpdateBalanceAsync(account.Id, newAccountBalance, cancellationToken);
+            await _balanceChangingsRepository.AddAsync(balanceChanging, cancellationToken);
+
+            return Result<BalanceChangingResponse>.Success
+                (new BalanceChangingResponse(balanceChanging.Id, balanceChanging.AccountId,
+                    balanceChanging.Date, balanceChanging.OldAccountBalance, balanceChanging.NewAccountBalance, account.Name));
         }
     }
 }

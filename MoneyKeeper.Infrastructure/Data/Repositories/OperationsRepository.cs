@@ -39,6 +39,8 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
         {
             return _db.Operations
                 .AsNoTracking()
+                .Include(o => o.Account)
+                .Include(o => o.Category)
                 .Where(o => o.Account.UserId == userId);
         }
 
@@ -49,6 +51,8 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .AsNoTracking()
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Include(o => o.Account)
+                .Include (o => o.Category)
                 .ToListAsync(cancellationToken);
             return (items, totalCount);
         }
@@ -76,6 +80,8 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
 
             return await _db.Operations
                 .AsNoTracking()
+                .Include(o => o.Account)
+                .Include (o => o.Category)
                 .FirstAsync(o => o.Id == operation.Id, cancellationToken);
         }
     }

@@ -1,4 +1,4 @@
 ﻿namespace MoneyKeeper.Contracts.BalanceChanging
 {
-    public record BalanceChangingUpsertRequest(int AccountId, decimal NewAccountBalance, string? Description);
+    public record BalanceChangingUpsertRequest(int AccountId, decimal NewAccountBalance);
 }

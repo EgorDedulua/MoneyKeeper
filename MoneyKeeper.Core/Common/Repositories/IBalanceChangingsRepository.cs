@@ -15,5 +15,7 @@ namespace MoneyKeeper.Core.Common.Repositories
         Task<BalanceChanging?> GetByIdAsync(int balanceChangingId, CancellationToken cancellationToken = default);
 
         Task<bool> AreAnyAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken = default);
+
+        Task<BalanceChanging> UpdateAsync(BalanceChanging balanceChanging, CancellationToken cancellationToken = default);
     }
 }

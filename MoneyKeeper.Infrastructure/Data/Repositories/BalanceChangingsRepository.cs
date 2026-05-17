@@ -37,6 +37,7 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
         {
             return _db.BalanceChangings
                 .AsNoTracking()
+                .Include(b => b.Account)
                 .Where(b => b.Account.UserId == userId);
         }
 
@@ -47,6 +48,7 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .AsNoTracking()
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Include(b => b.Account)
                 .ToListAsync(cancellationToken);
             return (items, totalCount);
         }
@@ -57,6 +59,21 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .AsNoTracking()
                 .Include(b => b.Account)
                 .FirstOrDefaultAsync(b => b.Id == balanceChangingId, cancellationToken);
+        }
+
+        public async Task<BalanceChanging> UpdateAsync(BalanceChanging balanceChanging, CancellationToken cancellationToken = default)
+        {
+            await _db.BalanceChangings
+                .Where(b => b.Id == balanceChanging.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(b => b.OldAccountBalance, balanceChanging.OldAccountBalance)
+                    .SetProperty(b => b.NewAccountBalance, balanceChanging.NewAccountBalance)
+                    .SetProperty(b => b.AccountId, balanceChanging.AccountId), cancellationToken);
+
+            return await _db.BalanceChangings
+                .AsNoTracking()
+                .Include(b => b.Account)
+                .FirstAsync(b => b.Id == balanceChanging.Id);
         }
     }
 }

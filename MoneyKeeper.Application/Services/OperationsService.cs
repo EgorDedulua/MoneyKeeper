@@ -81,7 +81,8 @@ namespace MoneyKeeper.Application.Services
                 .GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
             List<OperationResponse> responseItems = items
-                .Select(o => new OperationResponse(o.Id, o.AccountId, o.CategoryId, o.Sum, o.Description, o.Date, o.OldAccountBalance, o.NewAccountBalance))
+                .Select(o => new OperationResponse(o.Id, o.AccountId, o.CategoryId, o.Sum, o.Description, o.Date, o.OldAccountBalance, o.NewAccountBalance, 
+                    o.Account.Name, o.Category.Name))
                 .ToList();
 
             return Result<PagedResult<OperationResponse>>.Success
@@ -96,39 +97,15 @@ namespace MoneyKeeper.Application.Services
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                decimal? newBalance;
-                if (category.Type == CategoryType.Consumption)
+                Result<OperationResponse> result = await AddOperation(category, account, command.Sum, command.Description, cancellationToken);
+                if (!result.IsSuccess)
                 {
-                    newBalance = await _accountsRepository.TryWithdrawAsync(account.Id, command.Sum, cancellationToken);
-                    if (newBalance is null)
-                        return Result<OperationResponse>.Failure
-                            (Error.UnprocessableEntity($"На счете с id {account.Id} недостаточно средств для снятия суммы {command.Sum} рублей", 
-                                ErrorCodes.NOT_ENOUGH_MONEY));
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return result;
                 }
-                else
-                {
-                    newBalance = await _accountsRepository.TryDepositAsync(account.Id, command.Sum, cancellationToken);
-                    if (newBalance is null)
-                        return Result<OperationResponse>.Failure
-                            (Error.NotFound($"Не найден счет с id {command.AccountId}", ErrorCodes.ACCOUNT_NOT_FOUND));
-                }
-                decimal oldAccountBalance = account.Balance;
-                Operation operation = new Operation
-                {
-                    AccountId = account.Id,
-                    CategoryId = category!.Id,
-                    Sum = command.Sum,
-                    Description = command.Description,
-                    OldAccountBalance = oldAccountBalance,
-                    NewAccountBalance = (decimal)newBalance,
-                };
-                await _operationsRepository.AddAsync(operation, cancellationToken);
 
                 await _unitOfWork.CommitTransactionAsync();
-
-                return Result<OperationResponse>.Success
-                    (new OperationResponse(operation.Id, operation.AccountId, operation.CategoryId, operation.Sum, operation.Description,
-                        operation.Date, operation.OldAccountBalance, operation.NewAccountBalance));
+                return result;
             }
             catch
             {
@@ -145,7 +122,7 @@ namespace MoneyKeeper.Application.Services
             Category category = operationToDelete.Category;
 
             if (await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(account.Id, operationToDelete.Date, cancellationToken)
-                || await _transitionsRepository.AreAnySourceTransitionsAfter(account.Id, operationToDelete.Date, cancellationToken)
+                || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(account.Id, operationToDelete.Date, cancellationToken)
                 || await _balanceChangingsRepository.AreAnyAfterAsync(account.Id, operationToDelete.Date, cancellationToken))
             {
                 return Result<bool>.Failure
@@ -179,7 +156,7 @@ namespace MoneyKeeper.Application.Services
 
             if (await _balanceChangingsRepository.AreAnyAfterAsync(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken)
                 || await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken)
-                || await _transitionsRepository.AreAnySourceTransitionsAfter(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken))
+                || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken))
             {
                 return Result<OperationResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить операцию с id {command.OperationId}, так как после нее было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
@@ -195,40 +172,15 @@ namespace MoneyKeeper.Application.Services
                     await _commonBalanceOperationsRepository.RecalculateAllTailsAsync
                         (operationToUpdate.AccountId, operationToUpdate.Date, operationToUpdate.OldAccountBalance, cancellationToken);
 
-                    decimal? newBalance;
-                    if (category.Type == CategoryType.Consumption)
+                    Result<OperationResponse> result = await AddOperation(category, account, command.Sum, command.Description, cancellationToken);
+                    if (!result.IsSuccess)
                     {
-                        newBalance = await _accountsRepository.TryWithdrawAsync(account.Id, command.Sum, cancellationToken);
-                        if (newBalance is null)
-                            return Result<OperationResponse>.Failure
-                                (Error.UnprocessableEntity($"На счете с id {account.Id} недостаточно средств для снятия суммы {command.Sum} рублей",
-                                    ErrorCodes.NOT_ENOUGH_MONEY));
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return result;
                     }
-                    else
-                    {
-                        newBalance = await _accountsRepository.TryDepositAsync(account.Id, command.Sum, cancellationToken);
-                        if (newBalance is null)
-                            return Result<OperationResponse>.Failure
-                                (Error.NotFound($"Не найден счет с id {command.AccountId}", ErrorCodes.ACCOUNT_NOT_FOUND));
-                    }
-
-                    var newOperation = new Operation
-                    {
-                        AccountId = account.Id,
-                        CategoryId = category.Id,
-                        Sum = command.Sum,
-                        Description = command.Description,
-                        OldAccountBalance = account.Balance,
-                        NewAccountBalance = newBalance.Value,
-                    };
-
-                    await _operationsRepository.AddAsync(newOperation, cancellationToken);
 
                     await _unitOfWork.CommitTransactionAsync();
-
-                    return Result<OperationResponse>.Success
-                        (new OperationResponse(newOperation.Id, newOperation.AccountId, newOperation.CategoryId, newOperation.Sum, newOperation.Description, 
-                            newOperation.Date, newOperation.OldAccountBalance, newOperation.NewAccountBalance));
+                    return result;
                 }
 
                 if (command.Sum != operationToUpdate.Sum || category.Id != operationToUpdate.CategoryId)
@@ -262,7 +214,7 @@ namespace MoneyKeeper.Application.Services
 
                 return Result<OperationResponse>.Success
                     (new OperationResponse(updatedOperation.Id, updatedOperation.AccountId, updatedOperation.CategoryId, updatedOperation.Sum, updatedOperation.Description, updatedOperation.Date,
-                        updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance));
+                        updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance, updatedOperation.Account.Name, updatedOperation.Category.Name));
             }
             catch
             {
@@ -270,6 +222,42 @@ namespace MoneyKeeper.Application.Services
                 return Result<OperationResponse>.Failure
                     (Error.InternalServerError("Неизвестная ошибка при обновлении операции", ErrorCodes.UNKNOWN_OPERATION_UPDATING_ERROR));
             }
+        }
+
+        private async Task<Result<OperationResponse>> AddOperation(Category category, Account account, decimal sum, string? description, 
+            CancellationToken cancellationToken)
+        {
+            decimal? newBalance;
+            if (category.Type == CategoryType.Consumption)
+            {
+                newBalance = await _accountsRepository.TryWithdrawAsync(account.Id, sum, cancellationToken);
+                if (newBalance is null)
+                    return Result<OperationResponse>.Failure
+                        (Error.UnprocessableEntity($"На счете с id {account.Id} недостаточно средств для снятия суммы {sum} рублей",
+                            ErrorCodes.NOT_ENOUGH_MONEY));
+            }
+            else
+            {
+                newBalance = await _accountsRepository.TryDepositAsync(account.Id, sum, cancellationToken);
+                if (newBalance is null)
+                    return Result<OperationResponse>.Failure
+                        (Error.NotFound($"Не найден счет с id {account.Id}", ErrorCodes.ACCOUNT_NOT_FOUND));
+            }
+            decimal oldAccountBalance = account.Balance;
+            Operation operation = new Operation
+            {
+                AccountId = account.Id,
+                CategoryId = category!.Id,
+                Sum = sum,
+                Description = description,
+                OldAccountBalance = oldAccountBalance,
+                NewAccountBalance = (decimal)newBalance,
+            };
+            await _operationsRepository.AddAsync(operation, cancellationToken);
+
+            return Result<OperationResponse>.Success
+                    (new OperationResponse(operation.Id, operation.AccountId, operation.CategoryId, operation.Sum, operation.Description,
+                        operation.Date, operation.OldAccountBalance, operation.NewAccountBalance, operation.Account.Name, operation.Category.Name));
         }
     }
 }
