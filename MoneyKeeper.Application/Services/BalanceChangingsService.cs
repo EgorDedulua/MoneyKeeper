@@ -135,7 +135,7 @@ namespace MoneyKeeper.Application.Services
                 || await _balanceChangingsRepository.AreAnyAfterAsync(balanceChangingToUpdate.AccountId, balanceChangingToUpdate.Date, cancellationToken))
             {
                 return Result<BalanceChangingResponse>.Failure
-                    (Error.UnprocessableEntity($"Невозможно отменить изменение баланса с id {command.BalanceChangingId}, так как после него было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
+                    (Error.UnprocessableEntity($"Невозможно обновить изменение баланса с id {command.BalanceChangingId}, так как после него было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
                         ErrorCodes.BALANCE_CHANGING_UPDATING_DENIED));
             }
 

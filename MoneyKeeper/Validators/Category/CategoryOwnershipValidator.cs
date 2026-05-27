@@ -13,15 +13,11 @@ namespace MoneyKeeper.Validators.Category
                 .Cascade(CascadeMode.Stop)
                 .MustAsync(async (model, cancellationToken) =>
                 {
-                    return await categoriesRepository.GetByIdAsync(model.CategoryId, cancellationToken) is not null;
+                    Core.Models.Category? category = await categoriesRepository.GetByIdAsync(model.CategoryId, cancellationToken);
+                    return category is not null && category.UserId == model.UserId;
                 })
-                .WithMessage(model => $"Не найдена категория с id {model.CategoryId}").WithErrorCode(ErrorCodes.CATEGORY_NOT_FOUND)
-                .MustAsync(async (model, cancellationToken) =>
-                {
-                    Core.Models.Category category = (await categoriesRepository.GetByIdAsync(model.CategoryId, cancellationToken))!;
-                    return category.UserId == model.UserId;
-                })
-                .WithMessage(model => $"Категория с id {model.CategoryId} не принадлежит пользователю с id {model.UserId}").WithErrorCode(ErrorCodes.USER_ACCESS_DENIED);
+                .WithMessage(model => $"Не найдена категория с id {model.CategoryId} принадлежащая пользователю с id {model.UserId}")
+                    .WithErrorCode(ErrorCodes.CATEGORY_NOT_FOUND);
         }
     }
 }

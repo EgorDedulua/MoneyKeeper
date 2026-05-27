@@ -82,7 +82,7 @@ namespace MoneyKeeper.Application.Services
 
             List<OperationResponse> responseItems = items
                 .Select(o => new OperationResponse(o.Id, o.AccountId, o.CategoryId, o.Sum, o.Description, o.Date, o.OldAccountBalance, o.NewAccountBalance, 
-                    o.Account.Name, o.Category.Name))
+                    o.Account.Name, o.Category.Name, o.Category.Type))
                 .ToList();
 
             return Result<PagedResult<OperationResponse>>.Success
@@ -107,9 +107,10 @@ namespace MoneyKeeper.Application.Services
                 await _unitOfWork.CommitTransactionAsync();
                 return result;
             }
-            catch
+            catch (Exception ex)
             {
                 await _unitOfWork.RollbackTransactionAsync();
+                Console.WriteLine(ex.Message);
                 return Result<OperationResponse>.Failure
                     (Error.InternalServerError("Неизветсная ошибка при добавлении операции", ErrorCodes.UNKNOWN_OPERATION_CREATION_ERROR));
             }
@@ -214,7 +215,7 @@ namespace MoneyKeeper.Application.Services
 
                 return Result<OperationResponse>.Success
                     (new OperationResponse(updatedOperation.Id, updatedOperation.AccountId, updatedOperation.CategoryId, updatedOperation.Sum, updatedOperation.Description, updatedOperation.Date,
-                        updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance, updatedOperation.Account.Name, updatedOperation.Category.Name));
+                        updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance, updatedOperation.Account.Name, updatedOperation.Category.Name, updatedOperation.Category.Type));
             }
             catch
             {
@@ -228,6 +229,8 @@ namespace MoneyKeeper.Application.Services
             CancellationToken cancellationToken)
         {
             decimal? newBalance;
+            decimal oldAccountBalance = account.Balance;
+
             if (category.Type == CategoryType.Consumption)
             {
                 newBalance = await _accountsRepository.TryWithdrawAsync(account.Id, sum, cancellationToken);
@@ -243,7 +246,6 @@ namespace MoneyKeeper.Application.Services
                     return Result<OperationResponse>.Failure
                         (Error.NotFound($"Не найден счет с id {account.Id}", ErrorCodes.ACCOUNT_NOT_FOUND));
             }
-            decimal oldAccountBalance = account.Balance;
             Operation operation = new Operation
             {
                 AccountId = account.Id,
@@ -257,7 +259,7 @@ namespace MoneyKeeper.Application.Services
 
             return Result<OperationResponse>.Success
                     (new OperationResponse(operation.Id, operation.AccountId, operation.CategoryId, operation.Sum, operation.Description,
-                        operation.Date, operation.OldAccountBalance, operation.NewAccountBalance, operation.Account.Name, operation.Category.Name));
+                        operation.Date, operation.OldAccountBalance, operation.NewAccountBalance, account.Name, category.Name, category.Type));
         }
     }
 }

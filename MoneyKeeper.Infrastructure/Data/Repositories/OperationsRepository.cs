@@ -44,15 +44,12 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .Where(o => o.Account.UserId == userId);
         }
 
-        public async Task<(List<Operation> items, int TotalCount)> GetAllPagedAsync(IQueryable<Operation> query, int page, int pageSize, CancellationToken cancellationToken)
+        public async Task<(List<Operation> items, int totalCount)> GetAllPagedAsync(IQueryable<Operation> query, int page, int pageSize, CancellationToken cancellationToken)
         {
             int totalCount = await query.CountAsync(cancellationToken);
             List<Operation> items = await query
-                .AsNoTracking()
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Include(o => o.Account)
-                .Include (o => o.Category)
                 .ToListAsync(cancellationToken);
             return (items, totalCount);
         }

@@ -9,7 +9,8 @@ namespace MoneyKeeper.Validators.BalanceChanging
         public BalanceChangingUpsertValidator() 
         {
             RuleFor(x => x.NewAccountBalance)
-                .GreaterThanOrEqualTo(0).WithMessage("Новый баланс счета не может быть отрицательным").WithErrorCode(ErrorCodes.INVALID_ACCOUNT_BALANCE);
+                .GreaterThanOrEqualTo(0).WithMessage("Новый баланс счета не может быть отрицательным")
+                    .WithErrorCode(ErrorCodes.INVALID_ACCOUNT_BALANCE);
         }
     }
 }

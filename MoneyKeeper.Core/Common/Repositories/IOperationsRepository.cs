@@ -10,11 +10,11 @@ namespace MoneyKeeper.Core.Common.Repositories
 
         IQueryable<Operation> GetAllByUserId(int userId);
 
-        Task<(List<Operation> items, int TotalCount)> GetAllPagedAsync(IQueryable<Operation> query, int page, int pageSize, CancellationToken cancellationToken = default);
+        Task<(List<Operation> items, int totalCount)> GetAllPagedAsync(IQueryable<Operation> query, int page, int pageSize, CancellationToken cancellationToken = default);
 
         Task<Operation?> GetByIdAsync(int operationId, CancellationToken cancellationToken = default);
 
-        Task<Operation> UpdateAsync(Operation operation, CancellationToken cancellationToken);
+        Task<Operation> UpdateAsync(Operation operation, CancellationToken cancellationToken = default);
 
         Task<bool> AreAnyConsumptionOperationsAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken = default);
     }
