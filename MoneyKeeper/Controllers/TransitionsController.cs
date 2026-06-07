@@ -69,6 +69,35 @@ namespace MoneyKeeper.Controllers
             return result.ToErrorActionResult();
         }
 
+        [HttpPut("{transitionId}")]
+        public async Task<IActionResult> Update(int transitionId, [FromBody] TransitionUpsertRequest request, 
+            IValidator<ITransitionOwnershipValidationModel> transitionValidator, IValidator<TransitionUpsertRequest> dataValidator,
+            IValidator<ITransitionAccountsValidationModel> accountsValidator, CancellationToken cancellationToken)
+        {
+            int userId = _currentUserService.UserId;
+
+            TransitionUpdateCommand command =
+                new TransitionUpdateCommand(transitionId, userId, request.SourceAccountId, request.DestinationAccountId, request.Sum, request.Description);
+
+            ValidationResult[] validationResults = new ValidationResult[]
+            {
+                await dataValidator.ValidateAsync(request, cancellationToken),
+                await transitionValidator.ValidateAsync(command, cancellationToken),
+                await accountsValidator.ValidateAsync(command, cancellationToken)
+            };
+
+            IActionResult? errorResult = validationResults.ToErrorActionResult();
+            if (errorResult is not null)
+                return errorResult;
+
+            Result<TransitionResponse> result = await _transitionsService.Update(command, cancellationToken);
+
+            if (result.IsSuccess)
+                return Ok(result.Value);
+
+            return result.ToErrorActionResult();
+        }
+
         [HttpDelete("{transitionId}")]
         public async Task<IActionResult> Delete(int transitionId, IValidator<ITransitionOwnershipValidationModel> validator, CancellationToken cancellationToken)
         {

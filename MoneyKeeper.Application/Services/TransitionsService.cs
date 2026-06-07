@@ -6,6 +6,7 @@ using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
 using MoneyKeeper.Core.Common.Repositories;
 using MoneyKeeper.Core.Models;
+using System.Transactions;
 
 namespace MoneyKeeper.Application.Services
 {
@@ -145,9 +146,118 @@ namespace MoneyKeeper.Application.Services
                 (new PagedResult<TransitionResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
         }
 
-        public Task<Result<TransitionResponse>> Update(TransitionUpdateCommand command, CancellationToken cancellationToken)
+        public async Task<Result<TransitionResponse>> Update(TransitionUpdateCommand command, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            Transition transitionToUpdate = (await _transitionsRepository.GetByIdAsync(command.TransitionId, cancellationToken))!;
+            Account sourceAccount = (await _accountsRepository.GetByIdAsync(command.SourceAccountId, cancellationToken))!;
+            Account destinationAccount = (await _accountsRepository.GetByIdAsync(command.DestinationAccountId, cancellationToken))!;
+
+            bool isSourceChanged = transitionToUpdate.SourceAccountId != sourceAccount.Id;
+            bool isDestChanged = transitionToUpdate.DestinationAccountId != destinationAccount.Id;
+
+            if (isDestChanged && (
+                await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(transitionToUpdate.DestinationAccountId, transitionToUpdate.Date, cancellationToken)
+                || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(transitionToUpdate.DestinationAccountId, transitionToUpdate.Date, cancellationToken)
+                || await _balanceChangingsRepository.AreAnyAfterAsync(transitionToUpdate.DestinationAccountId, transitionToUpdate.Date, cancellationToken)))
+            {
+                return Result<TransitionResponse>.Failure
+                    (Error.UnprocessableEntity($"Невозможно отменить перевод с id {transitionToUpdate.Id}, так как после него на счете-получателе были потрачены деньги путем изменения баланса " +
+                        $", создания операции по трате денег или переводом с этого счета", ErrorCodes.TRANSITION_CANCELING_DENIED));
+            }
+
+            if (isSourceChanged && sourceAccount.Balance < command.Sum)
+            {
+                return Result<TransitionResponse>.Failure
+                    (Error.UnprocessableEntity($"На счете с id {sourceAccount.Id} недостаточно средств для снятия {command.Sum} рублей",
+                        ErrorCodes.NOT_ENOUGH_MONEY));
+            }
+            else
+            {
+                if (command.Sum > transitionToUpdate.Sum && transitionToUpdate.OldSourceAccountBalance < command.Sum)
+                {
+                    return Result<TransitionResponse>.Failure(
+                        Error.UnprocessableEntity($"Недостаточно средств на счёте-источнике для увеличения суммы перевода",
+                            ErrorCodes.NOT_ENOUGH_MONEY));
+                }
+            }
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                if (isSourceChanged || isDestChanged)
+                {
+                    await _transitionsRepository.DeleteAsync(transitionToUpdate.Id, cancellationToken);
+
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(
+                        transitionToUpdate.SourceAccountId, transitionToUpdate.Date,
+                        transitionToUpdate.OldSourceAccountBalance, cancellationToken);
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(
+                        transitionToUpdate.DestinationAccountId, transitionToUpdate.Date,
+                        transitionToUpdate.OldDestinationAccountBalance, cancellationToken);
+
+                    sourceAccount = (await _accountsRepository.GetByIdAsync(command.SourceAccountId, cancellationToken))!;
+                    destinationAccount = (await _accountsRepository.GetByIdAsync(command.DestinationAccountId, cancellationToken))!;
+
+                    Result<TransitionResponse> addResult = await AddTransition(
+                        sourceAccount, destinationAccount, command.Sum, command.Description, cancellationToken);
+                    if (!addResult.IsSuccess)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return addResult;
+                    }
+
+                    await _unitOfWork.CommitTransactionAsync();
+                    return addResult;
+                }
+                else
+                {
+                    if (!isSourceChanged && command.Sum > transitionToUpdate.OldSourceAccountBalance)
+                        return Result<TransitionResponse>.Failure
+                            (Error.UnprocessableEntity($"Недостаточно средств на счёте-источнике с id {transitionToUpdate.SourceAccountId} для новой суммы {command.Sum} рублей", 
+                                ErrorCodes.NOT_ENOUGH_MONEY));
+
+                    decimal newSourceBalance = transitionToUpdate.OldSourceAccountBalance - command.Sum;
+                    decimal newDestinationBalance = transitionToUpdate.OldDestinationAccountBalance + command.Sum;
+
+                    bool sourceTailValid = await _commonBalanceOperationsRepository.IsTailValidAfterChange(
+                        transitionToUpdate.SourceAccountId, transitionToUpdate.Date, newSourceBalance, cancellationToken);
+                    bool destTailValid = await _commonBalanceOperationsRepository.IsTailValidAfterChange(
+                        transitionToUpdate.DestinationAccountId, transitionToUpdate.Date, newDestinationBalance, cancellationToken);
+
+                    if (!sourceTailValid || !destTailValid)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<TransitionResponse>.Failure(
+                            Error.UnprocessableEntity("Изменение суммы перевода приведёт к отрицательному балансу на одном из счетов в будущем",
+                                ErrorCodes.TRANSITION_UPDATING_DENIED));
+                    }
+
+                    transitionToUpdate.Sum = command.Sum;
+                    transitionToUpdate.Description = command.Description;
+                    transitionToUpdate.NewDestinationAccountBalance = newDestinationBalance;
+                    transitionToUpdate.NewSourceAccountBalance = newSourceBalance;
+
+                    Transition updatedTransition = await _transitionsRepository.UpdateAsync(transitionToUpdate, cancellationToken);
+
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(
+                        transitionToUpdate.SourceAccountId, transitionToUpdate.Date, newSourceBalance, cancellationToken);
+                    await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(
+                        transitionToUpdate.DestinationAccountId, transitionToUpdate.Date, newDestinationBalance, cancellationToken);
+
+                    await _unitOfWork.CommitTransactionAsync();
+
+                    return Result<TransitionResponse>.Success
+                        (new TransitionResponse(updatedTransition.Id, updatedTransition.SourceAccountId, updatedTransition.DestinationAccountId, sourceAccount.Name,
+                            destinationAccount.Name, updatedTransition.Sum, updatedTransition.Description, updatedTransition.OldSourceAccountBalance, updatedTransition.NewSourceAccountBalance,
+                            updatedTransition.OldDestinationAccountBalance, updatedTransition.NewDestinationAccountBalance, updatedTransition.Date));
+                }
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                return Result<TransitionResponse>.Failure
+                    (Error.InternalServerError("Неизветсная ошибка при обновлении перевода", ErrorCodes.UNKNOWN_TRANSITION_UPDATING_ERROR));
+            }
         }
 
         private async Task<Result<TransitionResponse>> AddTransition(Account sourceAccount, Account destinationAccount, decimal sum, string? description, CancellationToken cancellationToken)
@@ -164,17 +274,25 @@ namespace MoneyKeeper.Application.Services
                 Sum = sum,
                 Description = description,
                 NewDestinationAccountBalance = oldDestinationAccountBalance + sum,
-                NewSourceAccountBalance = oldSourceAccountBalance + sum,
+                NewSourceAccountBalance = oldSourceAccountBalance - sum,
             };
 
-            await _accountsRepository.TryWithdrawAsync(sourceAccount.Id, sum, cancellationToken);
-            await _accountsRepository.TryDepositAsync(destinationAccount.Id, sum, cancellationToken);
+            decimal? withdrawResult = await _accountsRepository.TryWithdrawAsync(sourceAccount.Id, sum, cancellationToken);
+            if (withdrawResult is null)
+                return Result<TransitionResponse>.Failure(
+                    Error.UnprocessableEntity($"Недостаточно средств на счёте {sourceAccount.Id}", ErrorCodes.NOT_ENOUGH_MONEY));
+
+            decimal? depositResult = await _accountsRepository.TryDepositAsync(destinationAccount.Id, sum, cancellationToken);
+            if (depositResult is null)
+                return Result<TransitionResponse>.Failure(
+                    Error.NotFound($"Счёт назначения не найден", ErrorCodes.ACCOUNT_NOT_FOUND));
+
             await _transitionsRepository.AddAsync(transition, cancellationToken);
 
             return Result<TransitionResponse>.Success
                 (new TransitionResponse(transition.Id, transition.SourceAccountId, transition.DestinationAccountId, sourceAccount.Name,
                     destinationAccount.Name, sum, description, oldSourceAccountBalance, transition.NewSourceAccountBalance, oldDestinationAccountBalance,
-                    transition.NewDestinationAccountBalance, transition.Date));
+                        transition.NewDestinationAccountBalance, transition.Date));
         }
     }
 }

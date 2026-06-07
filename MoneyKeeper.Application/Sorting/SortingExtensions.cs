@@ -11,7 +11,7 @@ namespace MoneyKeeper.Application.Sorting
 
             string orderClause = string.Join(", ", sortBy
                 .Select(s => $"{s.Field} {(s.Descending? "desc" : "asc")}"));
-            query.OrderBy(orderClause);
+            query = query.OrderBy(orderClause);
             return query;
         }
     }

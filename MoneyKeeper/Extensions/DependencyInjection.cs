@@ -36,6 +36,7 @@ namespace MoneyKeeper.Extensions
             services.AddScoped<IBalanceChangingsService, BalanceChangingsService>();
             services.AddScoped<ITransitionsRepository, TransitionsRepository>();
             services.AddScoped<ICommonBalanceOperationsRepository, CommonBalanceOperationsRepository>();
+            services.AddScoped<ITransitionsService,  TransitionsService>();
             services.AddValidatorsFromAssemblyContaining<AccountOwnershipValidator>();
             services.AddDbContext<AppDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
             return services;
