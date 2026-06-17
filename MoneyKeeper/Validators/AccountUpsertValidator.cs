@@ -2,7 +2,7 @@
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Contracts.Account;
 
-namespace MoneyKeeper.Validators.Account
+namespace MoneyKeeper.Validators
 {
     public class AccountUpsertValidator : AbstractValidator<AccountUpsertRequest>
     {

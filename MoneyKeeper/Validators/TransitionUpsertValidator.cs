@@ -2,7 +2,7 @@
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Contracts.Transition;
 
-namespace MoneyKeeper.Validators.Transition
+namespace MoneyKeeper.Validators
 {
     public class TransitionUpsertValidator : AbstractValidator<TransitionUpsertRequest>
     {

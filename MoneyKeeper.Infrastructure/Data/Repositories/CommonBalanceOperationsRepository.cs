@@ -21,6 +21,7 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
 
             events.AddRange(await _context.Operations
                 .Where(o => o.AccountId == accountId && o.Date > fromDate)
+                .Include(o => o.Category)   
                 .ToListAsync(cancellationToken));
 
             events.AddRange(await _context.Transitions

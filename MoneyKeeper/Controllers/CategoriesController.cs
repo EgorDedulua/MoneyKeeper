@@ -1,16 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Client;
+using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Auth;
 using MoneyKeeper.Application.Common.Services;
+using MoneyKeeper.Application.Contracts.Category;
 using MoneyKeeper.Contracts.Category;
 using MoneyKeeper.Core.Common;
+using MoneyKeeper.Core.Models;
 using MoneyKeeper.Extensions;
-using MoneyKeeper.Application.Contracts.Category;
-using FluentValidation;
-using FluentValidation.Results;
-using MoneyKeeper.Application.Common.Validation;
-using MoneyKeeper.ValidationModels;
-using MoneyKeeper.Application.Common;
 
 namespace MoneyKeeper.Controllers
 {
@@ -21,11 +19,13 @@ namespace MoneyKeeper.Controllers
     {
         private readonly ICategoriesService _categoriesService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ILogger<CategoriesController> _logger;
 
-        public CategoriesController(ICategoriesService categoriesService, ICurrentUserService currentUserService)
+        public CategoriesController(ICategoriesService categoriesService, ICurrentUserService currentUserService, ILogger<CategoriesController> logger)
         {
             _categoriesService = categoriesService;
             _currentUserService = currentUserService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -38,79 +38,58 @@ namespace MoneyKeeper.Controllers
 
             if (result.IsSuccess)
                 return Ok(result.Value);
-            
+
+            _logger.LogWarning("Ошибка при получении пользователем с id {UserId} своих категорий: {ErrorCode}", userId, result.Error!.ErrorCode);
             return result.ToErrorActionResult();
         }
 
         [HttpPost]
-        public async Task<IActionResult> Add([FromBody] CategoryUpsertRequest request, IValidator<CategoryUpsertRequest> dataValidator,
-            IValidator<CategoryCreationCommand> categoryValidator, CancellationToken cancellationToken)
+        public async Task<IActionResult> Add([FromBody] CategoryUpsertRequest request, CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
             CategoryCreationCommand command =
                 new CategoryCreationCommand(userId, request.Name, request.Description, request.Type);
 
-            ValidationResult[] validationResults = new ValidationResult[]
-            {
-                await dataValidator.ValidateAsync(request, cancellationToken),
-                await categoryValidator.ValidateAsync(command, cancellationToken)
-            };
-
-            IActionResult? errorResult = validationResults.ToErrorActionResult();
-            if (errorResult is not null)
-                return errorResult;
-
             Result<CategoryResponse> result = await _categoriesService.Add(command, cancellationToken);
 
             if (result.IsSuccess)
                 return Ok(result.Value);
 
+            _logger.LogWarning("Ошибка добавления счета пользователем с id {UserId}: {ErrorCode}", userId, result.Error!.ErrorCode);
             return result.ToErrorActionResult();
         }
 
         [HttpDelete("{categoryId}")]
-        public async Task<IActionResult> Delete(int categoryId, IValidator<ICategoryOwnershipValidationModel> validator, CancellationToken cancellationToken)
+        public async Task<IActionResult> Delete(int categoryId, CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
-            ValidationResult validationResult = await validator.ValidateAsync(new CategoryDeletionValidationModel { UserId = userId, CategoryId = categoryId }
-            , cancellationToken);
-            if (!validationResult.IsValid)
-                return validationResult.ToErrorActionResult();
-
-            Result<bool> result = await _categoriesService.Delete(categoryId, cancellationToken);
+            Result<bool> result = await _categoriesService.Delete(new CategoryDeletionCommand(userId, categoryId), cancellationToken);
 
             if (result.IsSuccess)
                 return NoContent();
 
+            _logger.LogWarning
+                ("Ошибка удаления категории с id {CategoryId} пользователем с id {UserId}: {ErrorCode}", categoryId, userId, result.Error!.ErrorCode);
             return result.ToErrorActionResult();
         }
 
         [HttpPut("{categoryId}")]
-        public async Task<IActionResult> Update(int categoryId, [FromBody] CategoryUpsertRequest request,
-            IValidator<CategoryUpsertRequest> dataValidator, IValidator<ICategoryOwnershipValidationModel> categoryValidator, CancellationToken cancellationToken)
+        public async Task<IActionResult> Update(int categoryId, [FromBody] CategoryUpsertRequest request, CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
             CategoryUpdateCommand command = 
                 new CategoryUpdateCommand(userId, categoryId, request.Name, request.Description, request.Type);
 
-            ValidationResult[] validationResults = new ValidationResult[]
-            {
-                await dataValidator.ValidateAsync(request, cancellationToken),
-                await categoryValidator.ValidateAsync(command, cancellationToken)
-            };
-
-            IActionResult? errorResult = validationResults.ToErrorActionResult();
-            if (errorResult is not null)
-                return errorResult;
-
             Result<CategoryResponse> result = await _categoriesService.Update(command, cancellationToken);
             
             if (result.IsSuccess)
                 return Ok(result.Value);
 
+            _logger.LogWarning
+              ("Ошибка обновления категории с id {CategoryId} пользователем с id {UserId}: {ErrorCode}", categoryId, userId, result.Error!.ErrorCode);
             return result.ToErrorActionResult();
         }
     }

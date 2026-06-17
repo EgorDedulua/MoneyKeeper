@@ -1,16 +1,12 @@
-﻿using FluentValidation;
-using FluentValidation.Results;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Auth;
 using MoneyKeeper.Application.Common.Services;
-using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.Transition;
 using MoneyKeeper.Contracts.Transition;
 using MoneyKeeper.Core.Common;
 using MoneyKeeper.Extensions;
-using MoneyKeeper.ValidationModels;
 
 namespace MoneyKeeper.Controllers
 {
@@ -43,23 +39,12 @@ namespace MoneyKeeper.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Add([FromBody] TransitionUpsertRequest request, IValidator<TransitionUpsertRequest> dataValidator,
-            IValidator<ITransitionAccountsValidationModel> accountsValidator, CancellationToken cancellationToken)
+        public async Task<IActionResult> Add([FromBody] TransitionUpsertRequest request, CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
             TransitionCreationCommand command =
                 new TransitionCreationCommand(userId, request.SourceAccountId, request.DestinationAccountId, request.Sum, request.Description);
-
-            ValidationResult[] validationResults = new ValidationResult[]
-            {
-                await dataValidator.ValidateAsync(request, cancellationToken),
-                await accountsValidator.ValidateAsync(command, cancellationToken)
-            };
-
-            IActionResult? errorResult = validationResults.ToErrorActionResult();
-            if (errorResult is not null)
-                return errorResult;
 
             Result<TransitionResponse> result = await _transitionsService.Add(command, cancellationToken);
 
@@ -71,24 +56,12 @@ namespace MoneyKeeper.Controllers
 
         [HttpPut("{transitionId}")]
         public async Task<IActionResult> Update(int transitionId, [FromBody] TransitionUpsertRequest request, 
-            IValidator<ITransitionOwnershipValidationModel> transitionValidator, IValidator<TransitionUpsertRequest> dataValidator,
-            IValidator<ITransitionAccountsValidationModel> accountsValidator, CancellationToken cancellationToken)
+            CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
             TransitionUpdateCommand command =
                 new TransitionUpdateCommand(transitionId, userId, request.SourceAccountId, request.DestinationAccountId, request.Sum, request.Description);
-
-            ValidationResult[] validationResults = new ValidationResult[]
-            {
-                await dataValidator.ValidateAsync(request, cancellationToken),
-                await transitionValidator.ValidateAsync(command, cancellationToken),
-                await accountsValidator.ValidateAsync(command, cancellationToken)
-            };
-
-            IActionResult? errorResult = validationResults.ToErrorActionResult();
-            if (errorResult is not null)
-                return errorResult;
 
             Result<TransitionResponse> result = await _transitionsService.Update(command, cancellationToken);
 
@@ -99,16 +72,11 @@ namespace MoneyKeeper.Controllers
         }
 
         [HttpDelete("{transitionId}")]
-        public async Task<IActionResult> Delete(int transitionId, IValidator<ITransitionOwnershipValidationModel> validator, CancellationToken cancellationToken)
+        public async Task<IActionResult> Delete(int transitionId, CancellationToken cancellationToken)
         {
             int userId = _currentUserService.UserId;
 
-            ValidationResult validationResult =
-                await validator.ValidateAsync(new TransitionDeletionValidationModel { UserId = userId, TransitionId = transitionId }, cancellationToken);
-            if (!validationResult.IsValid)
-                return validationResult.ToErrorActionResult();
-
-            Result<bool> result = await _transitionsService.Delete(transitionId, cancellationToken);
+            Result<bool> result = await _transitionsService.Delete(new TransitionDeletionCommand(userId, transitionId), cancellationToken);
 
             if (result.IsSuccess)
                 return NoContent();

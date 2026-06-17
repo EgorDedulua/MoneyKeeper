@@ -1,6 +1,11 @@
-﻿using MoneyKeeper.Application.Common;
+﻿using FluentValidation;
+using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
+using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
+using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.Operation;
+using MoneyKeeper.Application.Extensions;
 using MoneyKeeper.Application.Filters;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
@@ -19,11 +24,17 @@ namespace MoneyKeeper.Application.Services
         private readonly IBalanceChangingsRepository _balanceChangingsRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICommonBalanceOperationsRepository _commonBalanceOperationsRepository;
+        private readonly IValidator<IOperationOwnershipValidationModel> _operationOwnershipValidator;
+        private readonly IValidator<ICategoryOwnershipValidationModel> _categoryOwnershipValidator;
+        private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
+        private readonly ILogger<OperationsService> _logger;
 
         public OperationsService(IOperationsRepository operationsRepository, 
             IAccountsRepository accountsRepository, ICategoriesRepository categoriesRepository,
             IUnitOfWork unitOfWork, ITransitionsRepository transitionsRepository, IBalanceChangingsRepository balanceChangingsRepository,
-            ICommonBalanceOperationsRepository commonBalanceOperationsRepository)
+            ICommonBalanceOperationsRepository commonBalanceOperationsRepository, IValidator<IOperationOwnershipValidationModel> operationOwnershipValidator,
+            IValidator<ICategoryOwnershipValidationModel> categoryOwnershipValidator, IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator,
+            ILogger<OperationsService> logger)
         {
             _operationsRepository = operationsRepository; 
             _accountsRepository = accountsRepository;
@@ -32,6 +43,10 @@ namespace MoneyKeeper.Application.Services
             _transitionsRepository = transitionsRepository;
             _balanceChangingsRepository = balanceChangingsRepository;
             _commonBalanceOperationsRepository = commonBalanceOperationsRepository;
+            _operationOwnershipValidator = operationOwnershipValidator;
+            _categoryOwnershipValidator = categoryOwnershipValidator;
+            _accountOwnershipValidator = accountOwnershipValidator;
+            _logger = logger;
         }
 
         public async Task<Result<PagedResult<OperationResponse>>> GetAll(OperationQueryParameters parameters, 
@@ -91,6 +106,20 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<OperationResponse>> Add(OperationCreationCommand command, CancellationToken cancellationToken)
         {
+            List<ValidationResult> validationResults = new List<ValidationResult>
+            {
+                await _categoryOwnershipValidator.ValidateAsync(command, cancellationToken),
+                await _accountOwnershipValidator.ValidateAsync(command, cancellationToken),
+            };
+            if (validationResults.Any(r => !r.IsValid))
+            {
+                _logger.LogWarning(
+                    "Пользователь {UserId} не смог создать операцию (счёт {AccountId}, категория {CategoryId}): ошибка валидации {ErrorCode}",
+                    command.UserId, command.AccountId, command.CategoryId, validationResults.FirstOrDefault()?.Errors.FirstOrDefault()?.ErrorCode);
+                
+                return Result<OperationResponse>.Failure(validationResults.ToError()!);
+            }
+
             Account account = (await _accountsRepository.GetByIdAsync(command.AccountId, cancellationToken))!;
             Category category = (await _categoriesRepository.GetByIdAsync(command.CategoryId, cancellationToken))!;
 
@@ -104,21 +133,37 @@ namespace MoneyKeeper.Application.Services
                     return result;
                 }
 
+                _logger.LogInformation(
+                    "Пользователь {UserId} создал операцию {OperationId} (счёт {AccountId}, категория {CategoryId}, сумма {Sum})",
+                    command.UserId, result.Value.Id, result.Value.AccountId, result.Value.CategoryId, result.Value.Sum);
+                
                 await _unitOfWork.CommitTransactionAsync();
                 return result;
             }
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackTransactionAsync();
-                Console.WriteLine(ex.Message);
+                _logger.LogError(ex,
+                    "Неожиданная ошибка при создании операции пользователем {UserId} (счёт {AccountId})",
+                    command.UserId, command.AccountId);
                 return Result<OperationResponse>.Failure
                     (Error.InternalServerError("Неизветсная ошибка при добавлении операции", ErrorCodes.UNKNOWN_OPERATION_CREATION_ERROR));
             }
         }
 
-        public async Task<Result<bool>> Delete(int operationId, CancellationToken cancellationToken)
+        public async Task<Result<bool>> Delete(OperationDeletionCommand command, CancellationToken cancellationToken)
         {
-            Operation operationToDelete = (await _operationsRepository.GetByIdAsync(operationId, cancellationToken))!;
+            ValidationResult validationResult = await _operationOwnershipValidator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                _logger.LogWarning(
+                    "Пользователь {UserId} попытался удалить операцию {OperationId}, но валидация не пройдена: {ErrorCode}",
+                    command.UserId, command.OperationId, validationResult.Errors.FirstOrDefault()?.ErrorCode);
+                
+                return Result<bool>.Failure(validationResult.ToError());
+            }
+
+            Operation operationToDelete = (await _operationsRepository.GetByIdAsync(command.OperationId, cancellationToken))!;
             Account account = operationToDelete.Account;
             Category category = operationToDelete.Category;
 
@@ -126,6 +171,10 @@ namespace MoneyKeeper.Application.Services
                 || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(account.Id, operationToDelete.Date, cancellationToken)
                 || await _balanceChangingsRepository.AreAnyAfterAsync(account.Id, operationToDelete.Date, cancellationToken))
             {
+                _logger.LogWarning(
+                    "Пользователь {UserId} попытался удалить операцию {OperationId}, но после неё есть расходы/переводы/изменения баланса",
+                    command.UserId, command.OperationId);
+                
                 return Result<bool>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить операцию с id {operationToDelete.Id}, так как после нее были потрачены деньги путем изменения баланса " +
                     $", создания операции по трате денег или переводом с этого счета", ErrorCodes.OPERATION_CANCELING_DENIED));
@@ -139,11 +188,19 @@ namespace MoneyKeeper.Application.Services
                     (account.Id, operationToDelete.Date, operationToDelete.OldAccountBalance, cancellationToken);
                 await _unitOfWork.CommitTransactionAsync();
 
+                _logger.LogInformation(
+                    "Пользователь {UserId} удалил операцию {OperationId} со счёта {AccountId}",
+                    command.UserId, command.OperationId, operationToDelete.AccountId);
+                
                 return Result<bool>.Success(true);
             }
-            catch
+            catch (Exception ex)
             {
                 await _unitOfWork.RollbackTransactionAsync();
+                _logger.LogError(ex,
+                    "Неожиданная ошибка при удалении операции {OperationId} пользователем {UserId}",
+                    command.OperationId, command.UserId);
+                
                 return Result<bool>.Failure
                     (Error.InternalServerError("Неизвестная ошибка при удалении операции", ErrorCodes.UNKNOWN_OPERATION_DELETING_ERROR));
             }
@@ -151,6 +208,21 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<OperationResponse>> Update(OperationUpdateCommand command, CancellationToken cancellationToken = default)
         {
+            List<ValidationResult> validationResults = new List<ValidationResult>
+            {
+                await _operationOwnershipValidator.ValidateAsync(command, cancellationToken),
+                await _categoryOwnershipValidator.ValidateAsync(command, cancellationToken),
+                await _accountOwnershipValidator.ValidateAsync(command, cancellationToken),
+            };
+            if (validationResults.Any(r => !r.IsValid))
+            {
+                _logger.LogWarning(
+                    "Пользователь {UserId} попытался обновить операцию {OperationId}, но валидация не пройдена",
+                    command.UserId, command.OperationId);
+
+                return Result<OperationResponse>.Failure(validationResults.ToError()!);
+            }
+
             Operation operationToUpdate = (await _operationsRepository.GetByIdAsync(command.OperationId, cancellationToken))!;
             Account account = (await _accountsRepository.GetByIdAsync(command.AccountId))!;
             Category category = (await _categoriesRepository.GetByIdAsync(command.CategoryId))!;
@@ -159,6 +231,10 @@ namespace MoneyKeeper.Application.Services
                 || await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken)
                 || await _transitionsRepository.AreAnySourceTransitionsAfterAsync(operationToUpdate.AccountId, operationToUpdate.Date, cancellationToken))
             {
+                _logger.LogWarning(
+                    "Пользователь {UserId} попытался обновить операцию {OperationId}, но после неё есть расходы/переводы/изменения баланса",
+                    command.UserId, command.OperationId);
+   
                 return Result<OperationResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить операцию с id {command.OperationId}, так как после нее было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
                         ErrorCodes.OPERATION_UPDATING_DENIED));
@@ -180,6 +256,10 @@ namespace MoneyKeeper.Application.Services
                         return result;
                     }
 
+                    _logger.LogInformation(
+                        "Пользователь {UserId} обновил операцию {OperationId} (счёт {AccountId}, категория {CategoryId}, сумма {Sum})",
+                        command.UserId, command.OperationId, command.AccountId, command.CategoryId, command.Sum);
+                    
                     await _unitOfWork.CommitTransactionAsync();
                     return result;
                 }
@@ -193,6 +273,10 @@ namespace MoneyKeeper.Application.Services
                     {
                         if (command.Sum > operationToUpdate.OldAccountBalance)
                         {
+                            _logger.LogWarning(
+                                "Пользователь {UserId} попытался изменить сумму операции {OperationId}, но недостаточно средств",
+                                command.UserId, command.OperationId);
+
                             return Result<OperationResponse>.Failure
                                 (Error.UnprocessableEntity($"Невозможно изменить операцию с id {operationToUpdate.Id}, так как баланс счета станет меньше нуля после изменения суммы операции",
                                     ErrorCodes.OPERATION_UPDATING_DENIED));
@@ -212,14 +296,21 @@ namespace MoneyKeeper.Application.Services
                     await _operationsRepository.UpdateAsync(operationToUpdate, cancellationToken);
 
                 await _unitOfWork.CommitTransactionAsync();
+                _logger.LogInformation(
+                    "Пользователь {UserId} обновил операцию {OperationId} (счёт {AccountId}, категория {CategoryId}, сумма {Sum})",
+                    command.UserId, command.OperationId, command.AccountId, command.CategoryId, command.Sum);
 
                 return Result<OperationResponse>.Success
                     (new OperationResponse(updatedOperation.Id, updatedOperation.AccountId, updatedOperation.CategoryId, updatedOperation.Sum, updatedOperation.Description, updatedOperation.Date,
                         updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance, updatedOperation.Account.Name, updatedOperation.Category.Name, updatedOperation.Category.Type));
             }
-            catch
+            catch (Exception ex)
             {
                 await _unitOfWork.RollbackTransactionAsync();
+                _logger.LogError(ex,
+                    "Неожиданная ошибка при обновлении операции {OperationId} пользователем {UserId}",
+                    command.OperationId, command.UserId);
+
                 return Result<OperationResponse>.Failure
                     (Error.InternalServerError("Неизвестная ошибка при обновлении операции", ErrorCodes.UNKNOWN_OPERATION_UPDATING_ERROR));
             }

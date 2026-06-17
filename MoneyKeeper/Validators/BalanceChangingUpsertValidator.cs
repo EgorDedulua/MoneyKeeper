@@ -2,7 +2,7 @@
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Contracts.BalanceChanging;
 
-namespace MoneyKeeper.Validators.BalanceChanging
+namespace MoneyKeeper.Validators
 {
     public class BalanceChangingUpsertValidator : AbstractValidator<BalanceChangingUpsertRequest>
     {

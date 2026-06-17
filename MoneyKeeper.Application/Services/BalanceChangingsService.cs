@@ -1,6 +1,10 @@
-﻿using MoneyKeeper.Application.Common;
+﻿using FluentValidation;
+using FluentValidation.Results;
+using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
+using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.BalanceChanging;
+using MoneyKeeper.Application.Extensions;
 using MoneyKeeper.Application.Filters;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
@@ -17,9 +21,12 @@ namespace MoneyKeeper.Application.Services
         private readonly ITransitionsRepository _transitionsRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICommonBalanceOperationsRepository _commonBalanceOperationsRepository;
+        private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
+        private readonly IValidator<IBalanceChangingOwnershipValidationModel> _balanceChangingOwnershipValidator;
 
         public BalanceChangingsService(IBalanceChangingsRepository balanceChangingsRepository, IOperationsRepository operationsRepository,
-            ITransitionsRepository transitionsRepository, IUnitOfWork unitOfWork, IAccountsRepository accountsRepository, ICommonBalanceOperationsRepository commonBalanceOperationsRepository)
+            ITransitionsRepository transitionsRepository, IUnitOfWork unitOfWork, IAccountsRepository accountsRepository, ICommonBalanceOperationsRepository commonBalanceOperationsRepository,
+            IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, IValidator<IBalanceChangingOwnershipValidationModel> balanceChangingOwnershipValidator)
         {
             _balanceChangingsRepository = balanceChangingsRepository;
             _operationsRepository = operationsRepository;
@@ -27,12 +34,19 @@ namespace MoneyKeeper.Application.Services
             _unitOfWork = unitOfWork;
             _accountsRepository = accountsRepository;
             _commonBalanceOperationsRepository = commonBalanceOperationsRepository;
+            _accountOwnershipValidator = accountOwnershipValidator;
+            _balanceChangingOwnershipValidator = balanceChangingOwnershipValidator;
         }
 
         public async Task<Result<BalanceChangingResponse>> Add(BalanceChangingCreationCommand command, CancellationToken cancellationToken)
         {
-            Account account = (await _accountsRepository.GetByIdAsync(command.AccountId, cancellationToken))!;
+            ValidationResult validationResult = await _accountOwnershipValidator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<BalanceChangingResponse>.Failure(validationResult.ToError());
+            }
 
+            Account account = (await _accountsRepository.GetByIdAsync(command.AccountId, cancellationToken))!;
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -54,9 +68,15 @@ namespace MoneyKeeper.Application.Services
             }
         }
 
-        public async Task<Result<bool>> Delete(int balanceChangingId, CancellationToken cancellationToken)
+        public async Task<Result<bool>> Delete(BalanceChangingDeletionCommand command, CancellationToken cancellationToken)
         {
-            BalanceChanging balanceChangingToDelete = (await _balanceChangingsRepository.GetByIdAsync(balanceChangingId, cancellationToken))!;
+            ValidationResult validationResult = await _balanceChangingOwnershipValidator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<bool>.Failure(validationResult.ToError());
+            }
+
+            BalanceChanging balanceChangingToDelete = (await _balanceChangingsRepository.GetByIdAsync(command.BalanceChangingId, cancellationToken))!;
             Account account = balanceChangingToDelete.Account;
 
             if (await _operationsRepository.AreAnyConsumptionOperationsAfterAsync(account.Id, balanceChangingToDelete.Date, cancellationToken)
@@ -127,6 +147,16 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<BalanceChangingResponse>> Update(BalanceChangingUpdateCommand command, CancellationToken cancellationToken = default)
         {
+            List<ValidationResult> validationResults = new List<ValidationResult>
+            {
+                await _balanceChangingOwnershipValidator.ValidateAsync(command, cancellationToken),
+                await _accountOwnershipValidator.ValidateAsync(command, cancellationToken),
+            };
+            if (validationResults.Any(r => !r.IsValid))
+            {
+                return Result<BalanceChangingResponse>.Failure(validationResults.ToError()!);
+            }
+
             BalanceChanging balanceChangingToUpdate = (await _balanceChangingsRepository.GetByIdAsync(command.BalanceChangingId))!;
             Account account = (await _accountsRepository.GetByIdAsync(command.AccountId))!;
 

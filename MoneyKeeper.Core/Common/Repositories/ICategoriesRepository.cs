@@ -15,5 +15,9 @@ namespace MoneyKeeper.Core.Common.Repositories
         Task<Category?> GetByIdAsync(int categoryId, CancellationToken cancellationToken = default);
 
         Task<Category> UpdateAsync(Category category, CancellationToken cancellationToken = default);
+
+        Task<bool> ExistsAnotherWithName(string name, int categoryId, int userId, CancellationToken cancellationToken = default);
+
+        Task<bool> ExistsWithName(string name, int userId, CancellationToken cancellationToken = default);
     }
 }

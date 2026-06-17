@@ -3,7 +3,7 @@ using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Core.Common.Repositories;
 
-namespace MoneyKeeper.Validators.Transition
+namespace MoneyKeeper.Application.Validators.Transition
 {
     public class TransitionOwnershipValidator : AbstractValidator<ITransitionOwnershipValidationModel>
     {

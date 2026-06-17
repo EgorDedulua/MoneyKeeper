@@ -24,12 +24,7 @@ namespace MoneyKeeper.Validators.User
                 .Cascade(CascadeMode.Stop)
                 .NotEmpty().WithMessage("Логин не может быть пустым").WithErrorCode(ErrorCodes.LOGIN_IS_EMPTY)
                 .MinimumLength(4).WithMessage("Логин не может быть короче 4 символов").WithErrorCode(ErrorCodes.LOGIN_IS_TOO_SHORT)
-                .MaximumLength(50).WithMessage("Логин не может быть длиннее 50 символов").WithErrorCode(ErrorCodes.LOGIN_IS_TOO_LONG)
-                .MustAsync(async (login, cancellationToken) =>
-                {
-                    return await usersRepository.GetByLoginAsync(login, cancellationToken) is null;
-                })
-                .WithMessage("Логин уже занят").WithErrorCode(ErrorCodes.LOGIN_ALREADY_EXISTS);
+                .MaximumLength(50).WithMessage("Логин не может быть длиннее 50 символов").WithErrorCode(ErrorCodes.LOGIN_IS_TOO_LONG);
         }
     }
 }

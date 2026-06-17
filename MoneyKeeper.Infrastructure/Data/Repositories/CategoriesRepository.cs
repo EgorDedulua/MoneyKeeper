@@ -24,6 +24,18 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
             await _db.Categories.Where(c => c.Id == categoryId).ExecuteDeleteAsync(cancellationToken);
         }
 
+        public async Task<bool> ExistsAnotherWithName(string name, int categoryId, int userId, CancellationToken cancellationToken = default)
+        {
+            return await _db.Categories
+                .AnyAsync(c => c.UserId == userId && c.Name == name && c.Id != categoryId, cancellationToken);
+        }
+
+        public async Task<bool> ExistsWithName(string name, int userId, CancellationToken cancellationToken)
+        {
+            return await _db.Categories
+                .AnyAsync(c => c.UserId == userId && c.Name == name);
+        }
+
         public IQueryable<Category> GetAllByUserId(int userId)
         {
             return _db.Categories

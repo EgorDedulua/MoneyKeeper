@@ -2,7 +2,7 @@
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Contracts.Category;
 
-namespace MoneyKeeper.Validators.Category
+namespace MoneyKeeper.Validators    
 {
     public class CategoryUpsertValidator : AbstractValidator<CategoryUpsertRequest>
     {

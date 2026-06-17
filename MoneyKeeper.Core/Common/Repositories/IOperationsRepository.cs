@@ -17,5 +17,7 @@ namespace MoneyKeeper.Core.Common.Repositories
         Task<Operation> UpdateAsync(Operation operation, CancellationToken cancellationToken = default);
 
         Task<bool> AreAnyConsumptionOperationsAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken = default);
+
+        Task<bool> AreAnyOperationsWithCategory(int categoryId, CancellationToken cancellationToken = default);
     }
 }

@@ -1,12 +1,15 @@
-﻿using MoneyKeeper.Application.Common;
+﻿using FluentValidation;
+using FluentValidation.Results;
+using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
+using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.Transition;
+using MoneyKeeper.Application.Extensions;
 using MoneyKeeper.Application.Filters;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
 using MoneyKeeper.Core.Common.Repositories;
 using MoneyKeeper.Core.Models;
-using System.Transactions;
 
 namespace MoneyKeeper.Application.Services
 {
@@ -18,10 +21,13 @@ namespace MoneyKeeper.Application.Services
         private readonly ICommonBalanceOperationsRepository _commonBalanceOperationsRepository;
         private readonly IBalanceChangingsRepository _balanceChangingsRepository;
         private readonly IOperationsRepository _operationsRepository;
+        private readonly IValidator<ITransitionAccountsValidationModel> _transitionAccountsValidator;
+        private readonly IValidator<ITransitionOwnershipValidationModel> _transitionOwnershipValidator;
 
         public TransitionsService(ITransitionsRepository transitionsRepository, IAccountsRepository accountsRepository,
             IUnitOfWork unitOfWork, ICommonBalanceOperationsRepository commonBalanceOperationsRepository, IBalanceChangingsRepository balanceChangingsRepository,
-            IOperationsRepository operationsRepository)
+            IOperationsRepository operationsRepository, IValidator<ITransitionAccountsValidationModel> transitionAccountsValidator,
+            IValidator<ITransitionOwnershipValidationModel> transitionOwnershipValidator)
         {
             _transitionsRepository = transitionsRepository;
             _accountsRepository = accountsRepository;
@@ -29,10 +35,18 @@ namespace MoneyKeeper.Application.Services
             _commonBalanceOperationsRepository = commonBalanceOperationsRepository;
             _balanceChangingsRepository = balanceChangingsRepository;
             _operationsRepository = operationsRepository;
+            _transitionAccountsValidator = transitionAccountsValidator;
+            _transitionOwnershipValidator = transitionOwnershipValidator;
         }
 
         public async Task<Result<TransitionResponse>> Add(TransitionCreationCommand command, CancellationToken cancellationToken)
         {
+            ValidationResult validationResult = await _transitionAccountsValidator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<TransitionResponse>.Failure(validationResult.ToError());
+            }
+
             Account sourceAccount = (await _accountsRepository.GetByIdAsync(command.SourceAccountId, cancellationToken))!;
             Account destinationAccount = (await _accountsRepository.GetByIdAsync(command.DestinationAccountId, cancellationToken))!;
 
@@ -64,9 +78,15 @@ namespace MoneyKeeper.Application.Services
             }
         }
 
-        public async Task<Result<bool>> Delete(int transitionId, CancellationToken cancellationToken)
+        public async Task<Result<bool>> Delete(TransitionDeletionCommand command, CancellationToken cancellationToken)
         {
-            Transition transitionToDelete = (await _transitionsRepository.GetByIdAsync(transitionId, cancellationToken))!;
+            ValidationResult validationResult = await _transitionOwnershipValidator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<bool>.Failure(validationResult.ToError());
+            }
+
+            Transition transitionToDelete = (await _transitionsRepository.GetByIdAsync(command.TransitionId, cancellationToken))!;
             Account destinationAccount = (await _accountsRepository.GetByIdAsync(transitionToDelete.DestinationAccountId, cancellationToken))!;
 
 
@@ -75,14 +95,14 @@ namespace MoneyKeeper.Application.Services
                 || await _balanceChangingsRepository.AreAnyAfterAsync(destinationAccount.Id, transitionToDelete.Date, cancellationToken))
             {
                 return Result<bool>.Failure
-                    (Error.UnprocessableEntity($"Невозможно отменить перевод с id {transitionId}, так как после него на счете-получателе были потрачены деньги путем изменения баланса " +
+                    (Error.UnprocessableEntity($"Невозможно отменить перевод с id {command.TransitionId}, так как после него на счете-получателе были потрачены деньги путем изменения баланса " +
                     $", создания операции по трате денег или переводом с этого счета", ErrorCodes.TRANSITION_CANCELING_DENIED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                await _transitionsRepository.DeleteAsync(transitionId, cancellationToken);
+                await _transitionsRepository.DeleteAsync(command.TransitionId, cancellationToken);
                 await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(destinationAccount.Id, transitionToDelete.Date, transitionToDelete.OldDestinationAccountBalance, cancellationToken);
                 await _commonBalanceOperationsRepository.RecalculateAllTailsAsync(transitionToDelete.SourceAccountId, transitionToDelete.Date, transitionToDelete.OldSourceAccountBalance, cancellationToken);
                 await _unitOfWork.CommitTransactionAsync();
@@ -148,6 +168,16 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<TransitionResponse>> Update(TransitionUpdateCommand command, CancellationToken cancellationToken)
         {
+            List<ValidationResult> validationResults = new List<ValidationResult>
+            {
+                await _transitionOwnershipValidator.ValidateAsync(command, cancellationToken),
+                await _transitionAccountsValidator.ValidateAsync(command, cancellationToken),
+            };
+            if (validationResults.Any(r => !r.IsValid))
+            {
+                return Result<TransitionResponse>.Failure(validationResults.ToError()!);
+            }
+
             Transition transitionToUpdate = (await _transitionsRepository.GetByIdAsync(command.TransitionId, cancellationToken))!;
             Account sourceAccount = (await _accountsRepository.GetByIdAsync(command.SourceAccountId, cancellationToken))!;
             Account destinationAccount = (await _accountsRepository.GetByIdAsync(command.DestinationAccountId, cancellationToken))!;

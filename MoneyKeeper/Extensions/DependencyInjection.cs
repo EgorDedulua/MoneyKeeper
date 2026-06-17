@@ -11,7 +11,9 @@ using MoneyKeeper.Infrastructure.Data;
 using MoneyKeeper.Infrastructure.Data.Repositories;
 using System.Text;
 using FluentValidation;
-using MoneyKeeper.Validators.Account;
+using MoneyKeeper.Application.Validators;
+using MoneyKeeper.ExceptionHandlers;
+using MoneyKeeper.Validators;
 
 namespace MoneyKeeper.Extensions
 {
@@ -38,7 +40,10 @@ namespace MoneyKeeper.Extensions
             services.AddScoped<ICommonBalanceOperationsRepository, CommonBalanceOperationsRepository>();
             services.AddScoped<ITransitionsService,  TransitionsService>();
             services.AddValidatorsFromAssemblyContaining<AccountOwnershipValidator>();
+            services.AddValidatorsFromAssemblyContaining<OperationUpsertValidator>();
             services.AddDbContext<AppDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            services.AddProblemDetails();
+            services.AddExceptionHandler<GlobalExceptionHandler>();
             return services;
         }
 

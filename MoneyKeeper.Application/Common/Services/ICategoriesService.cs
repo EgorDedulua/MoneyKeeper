@@ -9,7 +9,7 @@ namespace MoneyKeeper.Application.Common.Services
 
         Task<Result<PagedResult<CategoryResponse>>> GetAll(CategoryQueryParameters parameters, int userId, CancellationToken cancellationToken = default);
 
-        Task<Result<bool>> Delete(int categoryId, CancellationToken cancellationToken = default);
+        Task<Result<bool>> Delete(CategoryDeletionCommand command, CancellationToken cancellationToken = default);
 
         Task<Result<CategoryResponse>> Update(CategoryUpdateCommand command, CancellationToken cancellationToken = default);
     }

@@ -2,7 +2,7 @@
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Contracts.Operation;
 
-namespace MoneyKeeper.Validators.Operation
+namespace MoneyKeeper.Validators
 {
     public class OperationUpsertValidator : AbstractValidator<OperationUpsertRequest>
     {

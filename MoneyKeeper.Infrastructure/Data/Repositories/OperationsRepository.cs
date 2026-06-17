@@ -81,5 +81,11 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .Include (o => o.Category)
                 .FirstAsync(o => o.Id == operation.Id, cancellationToken);
         }
+
+        public async Task<bool> AreAnyOperationsWithCategory(int categoryId, CancellationToken cancellationToken)
+        {
+            return await _db.Operations
+                .AnyAsync(o => o.CategoryId == categoryId, cancellationToken);
+        }
     }
 }

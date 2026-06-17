@@ -9,7 +9,7 @@ namespace MoneyKeeper.Application.Common.Services
 
         Task<Result<BalanceChangingResponse>> Add(BalanceChangingCreationCommand command, CancellationToken cancellationToken = default);
 
-        Task<Result<bool>> Delete(int balanceChangingId, CancellationToken cancellationToken = default);
+        Task<Result<bool>> Delete(BalanceChangingDeletionCommand command, CancellationToken cancellationToken = default);
         
         Task<Result<BalanceChangingResponse>> Update(BalanceChangingUpdateCommand command, CancellationToken cancellationToken = default);
     }

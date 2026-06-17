@@ -7,7 +7,7 @@ namespace MoneyKeeper.Application.Common.Services
     {
         Task<Result<AccountResponse>> Add(AccountCreationCommand command, CancellationToken cancellationToken = default);
 
-        Task<Result<bool>> Delete(int accountId, CancellationToken cancellationToken = default);
+        Task<Result<bool>> Delete(AccountDeletionCommand command, CancellationToken cancellationToken = default);
 
         Task<Result<PagedResult<AccountResponse>>> GetAll(AccountQueryParameters parameters,int userId, CancellationToken cancellationToken = default);
 

@@ -3,7 +3,7 @@ using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Core.Common.Repositories;
 
-namespace MoneyKeeper.Validators.Category
+namespace MoneyKeeper.Application.Validators
 {
     public class CategoryOwnershipValidator : AbstractValidator<ICategoryOwnershipValidationModel>
     {

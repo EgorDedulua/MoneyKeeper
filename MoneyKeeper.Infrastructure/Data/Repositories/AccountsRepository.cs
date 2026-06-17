@@ -98,5 +98,17 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
                 .Where(a => a.Id == accountId)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.Balance, newBalance), cancellationToken);
         }
+
+        public async Task<bool> ExistsAnotherWithName(string name, int accountId, int userId, CancellationToken cancellationToken)
+        {
+            return await _db.Accounts
+                .AnyAsync(a => a.UserId == userId && a.Name == name && a.Id != accountId, cancellationToken);
+        }
+
+        public async Task<bool> ExistsWithName(string name, int userId, CancellationToken cancellationToken)
+        {
+            return await _db.Accounts
+                .AnyAsync(a => a.UserId == userId && a.Name == name, cancellationToken);
+        }
     }
 }

@@ -15,14 +15,6 @@ namespace MoneyKeeper.Validators.User
 
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("Пароль не может быть пустым").WithErrorCode(ErrorCodes.PASSWORD_IS_EMPTY);
-
-            RuleFor(request => request)
-                .MustAsync(async (request, cancellationToken) =>
-                {
-                    Core.Models.User? user = await usersRepository.GetByLoginAsync(request.Login, cancellationToken);
-                    return (user is not null && passwordHasher.Verify(user.Password, request.Password));
-                })
-                .WithMessage("Неверный логин или пароль").WithErrorCode(ErrorCodes.INVALID_LOGIN_OR_PASSWORD);
         }
     }
 }
