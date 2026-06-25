@@ -11,6 +11,7 @@ namespace MoneyKeeper
         {
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddServices(builder.Configuration);
+            builder.Services.AddAppHealthChecks();
             builder.AddLogging();
             builder.Services.Configure<JwtOptions>(
                 builder.Configuration.GetSection(nameof(JwtOptions)));
@@ -22,6 +23,7 @@ namespace MoneyKeeper
             builder.Services.AddOpenApi();
 
             var app = builder.Build();
+            app.MapAppHealthChecks();
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
