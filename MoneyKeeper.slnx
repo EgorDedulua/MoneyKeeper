@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="../MoneyKeeper.Application.Tests/MoneyKeeper.Application.Tests.csproj" Id="faeff71c-cd68-421b-af84-034911e52b66" />
+    <Project Path="../MoneyKeeper.TestsCommons/MoneyKeeper.TestsCommons.csproj" Id="d6b10f79-7a8a-4921-84c2-d55341c53782" />
   </Folder>
   <Project Path="docker-compose.dcproj">
     <Build />

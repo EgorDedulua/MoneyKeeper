@@ -1,6 +1,7 @@
 using MoneyKeeper.Extensions;
 using MoneyKeeper.Filters;
 using MoneyKeeper.Infrastructure.Auth;
+using MoneyKeeper.Infrastructure.Data;
 using MoneyKeeper.Middlewares;
 
 namespace MoneyKeeper
@@ -23,6 +24,20 @@ namespace MoneyKeeper
             builder.Services.AddOpenApi();
 
             var app = builder.Build();
+            using (var scope = app.Services.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                try
+                {
+                    dbContext.Database.EnsureCreated();                           
+                }
+                catch (Exception ex)
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Ошибка при применении миграций");
+                    throw;
+                }
+            }
             app.MapAppHealthChecks();
             if (app.Environment.IsDevelopment())
             {

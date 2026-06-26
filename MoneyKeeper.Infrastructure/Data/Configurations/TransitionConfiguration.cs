@@ -11,11 +11,13 @@ namespace MoneyKeeper.Infrastructure.Data.Configurations
             builder
                 .HasOne(t => t.SourceAccount)
                 .WithMany()
-                .HasForeignKey(t => t.SourceAccountId);
+                .HasForeignKey(t => t.SourceAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
             builder
                 .HasOne(t => t.DestinationAccount)
                 .WithMany()
-                .HasForeignKey(t => t.DestinationAccountId);
+                .HasForeignKey(t => t.DestinationAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

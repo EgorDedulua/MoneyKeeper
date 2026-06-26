@@ -26,7 +26,7 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<AuthenticationResult>> Register(RegisterUserCommand command, CancellationToken cancellationToken)
         {
-            if (_userRepository.GetByLoginAsync(command.Login) is not null)
+            if (await _userRepository.GetByLoginAsync(command.Login, cancellationToken) is not null)
             {
                 return Result<AuthenticationResult>.Failure
                     (Error.Conflict("Логин уже занят", ErrorCodes.LOGIN_ALREADY_EXISTS));

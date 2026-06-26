@@ -21,6 +21,7 @@ namespace MoneyKeeper.Application.Services
         private readonly IBalanceChangingsService _balanceChangingsService;
         private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
         private readonly ILogger<AccountsService> _logger;
+
         public AccountsService(IAccountsRepository accountsRepository, IBalanceChangingsService balanceChangingsService,
             IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, ILogger<AccountsService> logger)
         {
@@ -32,7 +33,7 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<AccountResponse>> Add(AccountCreationCommand command, CancellationToken cancellationToken)
         {
-            if (await _accountsRepository.ExistsWithName(command.Name, command.UserId, cancellationToken))
+            if (await _accountsRepository.ExistsWithNameAsync(command.Name, command.UserId, cancellationToken))
             {
                 return Result<AccountResponse>.Failure
                     (Error.Conflict($"Счет с именем {command.Name} уже существует", ErrorCodes.ACCOUNT_NAME_ALREADY_EXISTS));
@@ -105,7 +106,7 @@ namespace MoneyKeeper.Application.Services
             }
 
             if (await _accountsRepository
-                .ExistsAnotherWithName(command.Name, command.AccountId, command.UserId, cancellationToken))
+                .ExistsAnotherWithNameAsync(command.Name, command.AccountId, command.UserId, cancellationToken))
             {
                 return Result<AccountResponse>.Failure
                     (Error.Conflict($"Счет с именем {command.Name} уже существует", ErrorCodes.ACCOUNT_NAME_ALREADY_EXISTS));
@@ -124,6 +125,7 @@ namespace MoneyKeeper.Application.Services
                     ("Пользователь с id {UserId} изменил баланс счёта с id {AccountId} на значение {NewBalance} и создал изменения баланса с id {BalanceChangingId}", 
                         command.UserId, command.AccountId, command.Balance, balanceChangingAddResult.Value.Id);
             }
+            account.Balance = command.Balance;
             account.Name = command.Name;
             account.Target = command.Target;
             account.Description = command.Description;

@@ -22,8 +22,8 @@ namespace MoneyKeeper.Core.Common.Repositories
 
         Task UpdateBalanceAsync(int accountId, decimal newBalance, CancellationToken cancellationToken = default);
 
-        Task<bool> ExistsAnotherWithName(string name, int accountId, int userId, CancellationToken cancellationToken = default);
+        Task<bool> ExistsAnotherWithNameAsync(string name, int accountId, int userId, CancellationToken cancellationToken = default);
 
-        Task<bool> ExistsWithName(string name, int userId, CancellationToken cancellationToken = default);
+        Task<bool> ExistsWithNameAsync(string name, int userId, CancellationToken cancellationToken = default);
     }
 }
