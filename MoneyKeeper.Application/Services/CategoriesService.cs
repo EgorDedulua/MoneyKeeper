@@ -60,7 +60,7 @@ namespace MoneyKeeper.Application.Services
                 return Result<bool>.Failure(validationResult.ToError());
             }
 
-            if (await _operationsRepository.AreAnyOperationsWithCategory(command.CategoryId))
+            if (await _operationsRepository.AreAnyOperationsWithCategoryAsync(command.CategoryId))
             {
                 return Result<bool>.Failure
                     (Error.UnprocessableEntity($"Нельзя удалить категорию с id {command.CategoryId} так как есть операции с этой категорией",
@@ -113,7 +113,7 @@ namespace MoneyKeeper.Application.Services
 
             Category category = (await _categoriesRepository.GetByIdAsync(command.CategoryId, cancellationToken))!;
             
-            if (command.Type != category.Type)
+            if (command.Type != category.Type && await _operationsRepository.AreAnyOperationsWithCategoryAsync(command.CategoryId, cancellationToken))
             {
                 return Result<CategoryResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно изменить тип категории с id {command.CategoryId} так как есть операции с этой категорией",

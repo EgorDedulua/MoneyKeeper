@@ -18,6 +18,6 @@ namespace MoneyKeeper.Core.Common.Repositories
 
         Task<bool> AreAnyConsumptionOperationsAfterAsync(int accountId, DateTime date, CancellationToken cancellationToken = default);
 
-        Task<bool> AreAnyOperationsWithCategory(int categoryId, CancellationToken cancellationToken = default);
+        Task<bool> AreAnyOperationsWithCategoryAsync(int categoryId, CancellationToken cancellationToken = default);
     }
 }
