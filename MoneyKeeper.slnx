@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/.github/" />
   <Folder Name="/.github/workflows/">
-    <File Path="dotnet.yml" />
+    <File Path=".github/workflows/dotnet.yml" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/MoneyKeeper.Application/MoneyKeeper.Application.csproj" />

@@ -10,13 +10,13 @@ USER $APP_UID
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["MoneyKeeper/MoneyKeeper.csproj", "MoneyKeeper/"]
-COPY ["MoneyKeeper.Infrastructure/MoneyKeeper.Infrastructure.csproj", "MoneyKeeper.Infrastructure/"]
-COPY ["MoneyKeeper.Application/MoneyKeeper.Application.csproj", "MoneyKeeper.Application/"]
-COPY ["MoneyKeeper.Core/MoneyKeeper.Core.csproj", "MoneyKeeper.Core/"]
-RUN dotnet restore "./MoneyKeeper/MoneyKeeper.csproj"
-COPY . .
-WORKDIR "/src/MoneyKeeper"
+COPY ["src/MoneyKeeper/MoneyKeeper.csproj", "MoneyKeeper/"]
+COPY ["src/MoneyKeeper.Infrastructure/MoneyKeeper.Infrastructure.csproj", "MoneyKeeper.Infrastructure/"]
+COPY ["src/MoneyKeeper.Application/MoneyKeeper.Application.csproj", "MoneyKeeper.Application/"]
+COPY ["src/MoneyKeeper.Core/MoneyKeeper.Core.csproj", "MoneyKeeper.Core/"]
+RUN dotnet restore "MoneyKeeper/MoneyKeeper.csproj"
+COPY src/ /src/
+WORKDIR /src/MoneyKeeper
 RUN dotnet build "./MoneyKeeper.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
