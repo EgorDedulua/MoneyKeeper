@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MoneyKeeper.TestsCommons\MoneyKeeper.TestsCommons.csproj" />
-    <ProjectReference Include="..\MoneyKeeper\MoneyKeeper.Application\MoneyKeeper.Application.csproj" />
+    <ProjectReference Include="..\..\src\MoneyKeeper.Application\MoneyKeeper.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
