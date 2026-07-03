@@ -21,13 +21,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore MoneyKeeper.sln
+        run: dotnet restore MoneyKeeper.slnx
 
       - name: Build
-        run: dotnet build MoneyKeeper.sln --no-restore
+        run: dotnet build MoneyKeeper.slnx --no-restore
 
       - name: Run tests
-        run: dotnet test MoneyKeeper.sln --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test MoneyKeeper.slnx --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
       - name: Upload test results
         if: always()
