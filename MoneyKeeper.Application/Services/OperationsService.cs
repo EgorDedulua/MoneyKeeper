@@ -177,7 +177,7 @@ namespace MoneyKeeper.Application.Services
                 
                 return Result<bool>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить операцию с id {operationToDelete.Id}, так как после нее были потрачены деньги путем изменения баланса " +
-                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.OPERATION_CANCELING_DENIED));
+                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -237,7 +237,7 @@ namespace MoneyKeeper.Application.Services
    
                 return Result<OperationResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить операцию с id {command.OperationId}, так как после нее было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
-                        ErrorCodes.OPERATION_UPDATING_DENIED));
+                        ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -276,10 +276,11 @@ namespace MoneyKeeper.Application.Services
                             _logger.LogWarning(
                                 "Пользователь {UserId} попытался изменить сумму операции {OperationId}, но недостаточно средств",
                                 command.UserId, command.OperationId);
+                            await _unitOfWork.RollbackTransactionAsync();
 
                             return Result<OperationResponse>.Failure
                                 (Error.UnprocessableEntity($"Невозможно изменить операцию с id {operationToUpdate.Id}, так как баланс счета станет меньше нуля после изменения суммы операции",
-                                    ErrorCodes.OPERATION_UPDATING_DENIED));
+                                    ErrorCodes.NOT_ENOUGH_MONEY));
                         }
                         newAccountBalance = operationToUpdate.OldAccountBalance - command.Sum;
                     }

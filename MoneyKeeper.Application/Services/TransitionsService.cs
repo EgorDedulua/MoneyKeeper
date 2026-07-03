@@ -96,7 +96,7 @@ namespace MoneyKeeper.Application.Services
             {
                 return Result<bool>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить перевод с id {command.TransitionId}, так как после него на счете-получателе были потрачены деньги путем изменения баланса " +
-                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.TRANSITION_CANCELING_DENIED));
+                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -192,7 +192,7 @@ namespace MoneyKeeper.Application.Services
             {
                 return Result<TransitionResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить перевод с id {transitionToUpdate.Id}, так как после него на счете-получателе были потрачены деньги путем изменения баланса " +
-                        $", создания операции по трате денег или переводом с этого счета", ErrorCodes.TRANSITION_CANCELING_DENIED));
+                        $", создания операции по трате денег или переводом с этого счета", ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             if (isSourceChanged && sourceAccount.Balance < command.Sum)
@@ -242,9 +242,12 @@ namespace MoneyKeeper.Application.Services
                 else
                 {
                     if (!isSourceChanged && command.Sum > transitionToUpdate.OldSourceAccountBalance)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
                         return Result<TransitionResponse>.Failure
-                            (Error.UnprocessableEntity($"Недостаточно средств на счёте-источнике с id {transitionToUpdate.SourceAccountId} для новой суммы {command.Sum} рублей", 
+                            (Error.UnprocessableEntity($"Недостаточно средств на счёте-источнике с id {transitionToUpdate.SourceAccountId} для новой суммы {command.Sum} рублей",
                                 ErrorCodes.NOT_ENOUGH_MONEY));
+                    }
 
                     decimal newSourceBalance = transitionToUpdate.OldSourceAccountBalance - command.Sum;
                     decimal newDestinationBalance = transitionToUpdate.OldDestinationAccountBalance + command.Sum;
@@ -259,7 +262,7 @@ namespace MoneyKeeper.Application.Services
                         await _unitOfWork.RollbackTransactionAsync();
                         return Result<TransitionResponse>.Failure(
                             Error.UnprocessableEntity("Изменение суммы перевода приведёт к отрицательному балансу на одном из счетов в будущем",
-                                ErrorCodes.TRANSITION_UPDATING_DENIED));
+                                ErrorCodes.NOT_ENOUGH_MONEY));
                     }
 
                     transitionToUpdate.Sum = command.Sum;

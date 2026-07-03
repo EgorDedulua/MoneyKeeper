@@ -85,7 +85,7 @@ namespace MoneyKeeper.Application.Services
             {
                 return Result<bool>.Failure
                     (Error.UnprocessableEntity($"Невозможно отменить изменение баланса с id {balanceChangingToDelete.Id}, так как после него были потрачены деньги путем изменения баланса " +
-                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.BALANCE_CHANGING_CANCELING_DENIED));
+                    $", создания операции по трате денег или переводом с этого счета", ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -166,7 +166,7 @@ namespace MoneyKeeper.Application.Services
             {
                 return Result<BalanceChangingResponse>.Failure
                     (Error.UnprocessableEntity($"Невозможно обновить изменение баланса с id {command.BalanceChangingId}, так как после него было ручное изменение баланса, были потрачены деньги или был перевод с этого счета",
-                        ErrorCodes.BALANCE_CHANGING_UPDATING_DENIED));
+                        ErrorCodes.MONEY_CANNOT_BE_RESTORED));
             }
 
             await _unitOfWork.BeginTransactionAsync();
