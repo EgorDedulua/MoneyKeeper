@@ -4,15 +4,15 @@
     <File Path="dotnet.yml" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="MoneyKeeper.Application/MoneyKeeper.Application.csproj" />
-    <Project Path="MoneyKeeper.Core/MoneyKeeper.Core.csproj" />
-    <Project Path="MoneyKeeper.Infrastructure/MoneyKeeper.Infrastructure.csproj" />
-    <Project Path="MoneyKeeper/MoneyKeeper.csproj" />
+    <Project Path="src/MoneyKeeper.Application/MoneyKeeper.Application.csproj" />
+    <Project Path="src/MoneyKeeper.Core/MoneyKeeper.Core.csproj" />
+    <Project Path="src/MoneyKeeper.Infrastructure/MoneyKeeper.Infrastructure.csproj" />
+    <Project Path="src/MoneyKeeper/MoneyKeeper.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="../MoneyKeeper.Application.Tests/MoneyKeeper.Application.Tests.csproj" Id="faeff71c-cd68-421b-af84-034911e52b66" />
-    <Project Path="../MoneyKeeper.Infrastructure.Tests/MoneyKeeper.Infrastructure.Tests.csproj" Id="9ce10567-8cb6-4e17-8f39-1e043351c952" />
-    <Project Path="../MoneyKeeper.TestsCommons/MoneyKeeper.TestsCommons.csproj" Id="d6b10f79-7a8a-4921-84c2-d55341c53782" />
+    <Project Path="tests/MoneyKeeper.Application.Tests/MoneyKeeper.Application.Tests.csproj" Id="faeff71c-cd68-421b-af84-034911e52b66" />
+    <Project Path="tests/MoneyKeeper.Infrastructure.Tests/MoneyKeeper.Infrastructure.Tests.csproj" Id="9ce10567-8cb6-4e17-8f39-1e043351c952" />
+    <Project Path="tests/MoneyKeeper.TestsCommons/MoneyKeeper.TestsCommons.csproj" Id="d6b10f79-7a8a-4921-84c2-d55341c53782" />
   </Folder>
   <Project Path="docker-compose.dcproj">
     <Build />
