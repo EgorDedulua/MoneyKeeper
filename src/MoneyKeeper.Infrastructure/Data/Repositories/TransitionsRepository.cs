@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MoneyKeeper.Core.Common.Repositories;
 using MoneyKeeper.Core.Models;
+using MoneyKeeper.Infrastructure.Extensions;
 
 namespace MoneyKeeper.Infrastructure.Data.Repositories
 {
@@ -44,12 +45,7 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
 
         public async Task<(List<Transition> items, int totalCount)> GetAllPagedAsync(IQueryable<Transition> query, int page, int pageSize, CancellationToken cancellationToken)
         {
-            int totalCount = await query.CountAsync(cancellationToken);
-            List<Transition> items = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync(cancellationToken);
-            return (items, totalCount);
+            return await query.GetPagedAsync(page, pageSize, cancellationToken);
         }
 
         public async Task<Transition?> GetByIdAsync(int transitionId, CancellationToken cancellationToken)
