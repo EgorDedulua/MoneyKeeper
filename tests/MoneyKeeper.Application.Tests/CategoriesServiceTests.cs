@@ -1,9 +1,12 @@
-﻿using FluentAssertions;
+﻿using AutoMapper;
+using FluentAssertions;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.Category;
+using MoneyKeeper.Application.Mappings;
 using MoneyKeeper.Application.Services;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
@@ -23,6 +26,20 @@ namespace MoneyKeeper.Application.Tests
         private readonly Mock<IOperationsRepository> _operationsRepositoryMock = new();
         private readonly Mock<IValidator<ICategoryOwnershipValidationModel>> _categoryOwnershipvalidatorMock = new();
         private readonly Mock<ILogger<CategoriesService>> _loggerMock = new();
+        private readonly IMapper _mapper;
+        public CategoriesServiceTests()
+        {
+            MapperConfiguration config = new MapperConfiguration(
+                cfg =>
+                {
+                    cfg.AddProfile<FiltersProfile>();
+                    cfg.AddProfile<ModelsProfile>();
+                },
+                new NullLoggerFactory()
+            );
+
+            _mapper = config.CreateMapper();
+        }
 
         private CategoriesService CreateService()
         {
@@ -30,7 +47,8 @@ namespace MoneyKeeper.Application.Tests
                 _categoriesRepositoryMock.Object,
                 _categoryOwnershipvalidatorMock.Object,
                 _loggerMock.Object,
-                _operationsRepositoryMock.Object
+                _operationsRepositoryMock.Object,
+                _mapper
             );
         }
 

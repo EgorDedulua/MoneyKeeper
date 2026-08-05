@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.Results;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
@@ -23,10 +24,12 @@ namespace MoneyKeeper.Application.Services
         private readonly ICommonBalanceOperationsRepository _commonBalanceOperationsRepository;
         private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
         private readonly IValidator<IBalanceChangingOwnershipValidationModel> _balanceChangingOwnershipValidator;
+        private readonly IMapper _mapper;
 
         public BalanceChangingsService(IBalanceChangingsRepository balanceChangingsRepository, IOperationsRepository operationsRepository,
             ITransitionsRepository transitionsRepository, IUnitOfWork unitOfWork, IAccountsRepository accountsRepository, ICommonBalanceOperationsRepository commonBalanceOperationsRepository,
-            IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, IValidator<IBalanceChangingOwnershipValidationModel> balanceChangingOwnershipValidator)
+            IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, IValidator<IBalanceChangingOwnershipValidationModel> balanceChangingOwnershipValidator,
+            IMapper mapper)
         {
             _balanceChangingsRepository = balanceChangingsRepository;
             _operationsRepository = operationsRepository;
@@ -36,6 +39,7 @@ namespace MoneyKeeper.Application.Services
             _commonBalanceOperationsRepository = commonBalanceOperationsRepository;
             _accountOwnershipValidator = accountOwnershipValidator;
             _balanceChangingOwnershipValidator = balanceChangingOwnershipValidator;
+            _mapper = mapper;
         }
 
         public async Task<Result<BalanceChangingResponse>> Add(BalanceChangingCreationCommand command, CancellationToken cancellationToken)
@@ -123,12 +127,7 @@ namespace MoneyKeeper.Application.Services
                 return Result<PagedResult<BalanceChangingResponse>>.Success
                     (new PagedResult<BalanceChangingResponse>(new List<BalanceChangingResponse>(), 0, parameters.Page, parameters.PageSize));
 
-            BalanceChangingFilter filter = new BalanceChangingFilter
-            {
-                AccountIds = requestedAccountIds,
-                FromDate = parameters.FromDate,
-                ToDate = parameters.ToDate,
-            };
+            BalanceChangingsFilter filter = _mapper.Map<BalanceChangingsFilter>(parameters);
             
             IQueryable<BalanceChanging> query = _balanceChangingsRepository.GetAllByUserId(userId);
             query = filter.ApplyTo(query);
@@ -137,9 +136,7 @@ namespace MoneyKeeper.Application.Services
             var (items, totalCount) =
                 await _balanceChangingsRepository.GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
-            List<BalanceChangingResponse> responseItems = items
-                .Select(b => new BalanceChangingResponse(b.Id, b.AccountId, b.Date, b.OldAccountBalance, b.NewAccountBalance, b.Account.Name))
-                .ToList();
+            List<BalanceChangingResponse> responseItems = _mapper.Map<List<BalanceChangingResponse>>(items);
 
             return Result<PagedResult<BalanceChangingResponse>>.Success
                 (new PagedResult<BalanceChangingResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
@@ -201,8 +198,7 @@ namespace MoneyKeeper.Application.Services
                 await _unitOfWork.CommitTransactionAsync();
 
                 return Result<BalanceChangingResponse>.Success
-                    (new BalanceChangingResponse(updatedBalanceChanging.Id, updatedBalanceChanging.AccountId, updatedBalanceChanging.Date,
-                        updatedBalanceChanging.OldAccountBalance, updatedBalanceChanging.NewAccountBalance, updatedBalanceChanging.Account.Name));
+                    (_mapper.Map<BalanceChangingResponse>(updatedBalanceChanging));
             }
             catch
             {
@@ -225,8 +221,7 @@ namespace MoneyKeeper.Application.Services
             await _balanceChangingsRepository.AddAsync(balanceChanging, cancellationToken);
 
             return Result<BalanceChangingResponse>.Success
-                (new BalanceChangingResponse(balanceChanging.Id, balanceChanging.AccountId,
-                    balanceChanging.Date, balanceChanging.OldAccountBalance, balanceChanging.NewAccountBalance, account.Name));
+                (_mapper.Map<BalanceChangingResponse>(balanceChanging));
         }
     }
 }

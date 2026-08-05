@@ -1,8 +1,9 @@
-﻿using MoneyKeeper.Core.Models;
+﻿using MoneyKeeper.Application.Common;
+using MoneyKeeper.Core.Models;
 
 namespace MoneyKeeper.Application.Filters
 {
-    public class BalanceChangingFilter : IFilter<BalanceChanging>
+    public class BalanceChangingsFilter : IFilter<BalanceChanging>
     {
         public List<int> AccountIds { get; set; } = [];
 

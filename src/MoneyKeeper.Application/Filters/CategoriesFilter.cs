@@ -1,9 +1,10 @@
 ﻿using MoneyKeeper.Core.Models;
 using MoneyKeeper.Core.Enums;
+using MoneyKeeper.Application.Common;
 
 namespace MoneyKeeper.Application.Filters
 {
-    public class CategoryFilter : IFilter<Category>
+    public class CategoriesFilter : IFilter<Category>
     {
         public bool? IsOnlyIncome { get; set; }
 

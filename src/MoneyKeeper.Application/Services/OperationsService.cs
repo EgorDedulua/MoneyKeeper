@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using MoneyKeeper.Application.Common;
@@ -28,13 +29,14 @@ namespace MoneyKeeper.Application.Services
         private readonly IValidator<ICategoryOwnershipValidationModel> _categoryOwnershipValidator;
         private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
         private readonly ILogger<OperationsService> _logger;
+        private readonly IMapper _mapper;
 
         public OperationsService(IOperationsRepository operationsRepository, 
             IAccountsRepository accountsRepository, ICategoriesRepository categoriesRepository,
             IUnitOfWork unitOfWork, ITransitionsRepository transitionsRepository, IBalanceChangingsRepository balanceChangingsRepository,
             ICommonBalanceOperationsRepository commonBalanceOperationsRepository, IValidator<IOperationOwnershipValidationModel> operationOwnershipValidator,
             IValidator<ICategoryOwnershipValidationModel> categoryOwnershipValidator, IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator,
-            ILogger<OperationsService> logger)
+            ILogger<OperationsService> logger, IMapper mapper)
         {
             _operationsRepository = operationsRepository; 
             _accountsRepository = accountsRepository;
@@ -47,6 +49,7 @@ namespace MoneyKeeper.Application.Services
             _categoryOwnershipValidator = categoryOwnershipValidator;
             _accountOwnershipValidator = accountOwnershipValidator;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<Result<PagedResult<OperationResponse>>> GetAll(OperationQueryParameters parameters, 
@@ -78,15 +81,7 @@ namespace MoneyKeeper.Application.Services
                 return Result<PagedResult<OperationResponse>>.Success
                     (new PagedResult<OperationResponse>(new List<OperationResponse>(), 0, parameters.Page, parameters.PageSize));
 
-            OperationFilter filter = new OperationFilter()
-            {
-                AccountIds = requestedAccountIds,
-                CategoryIds = requestedCategoryIds,
-                MinSum = parameters.MinSum,
-                MaxSum = parameters.MaxSum,
-                FromDate = parameters.FromDate,
-                ToDate = parameters.ToDate,
-            };
+            OperationsFilter filter = _mapper.Map<OperationsFilter>(parameters);
 
             IQueryable<Operation> query = _operationsRepository.GetAllByUserId(userId);
             query = filter.ApplyTo(query);
@@ -95,10 +90,7 @@ namespace MoneyKeeper.Application.Services
             var (items, totalCount) = await _operationsRepository
                 .GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
-            List<OperationResponse> responseItems = items
-                .Select(o => new OperationResponse(o.Id, o.AccountId, o.CategoryId, o.Sum, o.Description, o.Date, o.OldAccountBalance, o.NewAccountBalance, 
-                    o.Account.Name, o.Category.Name, o.Category.Type))
-                .ToList();
+            List<OperationResponse> responseItems = _mapper.Map<List<OperationResponse>>(items);
 
             return Result<PagedResult<OperationResponse>>.Success
                 (new PagedResult<OperationResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
@@ -302,8 +294,7 @@ namespace MoneyKeeper.Application.Services
                     command.UserId, command.OperationId, command.AccountId, command.CategoryId, command.Sum);
 
                 return Result<OperationResponse>.Success
-                    (new OperationResponse(updatedOperation.Id, updatedOperation.AccountId, updatedOperation.CategoryId, updatedOperation.Sum, updatedOperation.Description, updatedOperation.Date,
-                        updatedOperation.OldAccountBalance, updatedOperation.NewAccountBalance, updatedOperation.Account.Name, updatedOperation.Category.Name, updatedOperation.Category.Type));
+                    (_mapper.Map<OperationResponse>(updatedOperation));
             }
             catch (Exception ex)
             {
@@ -350,8 +341,7 @@ namespace MoneyKeeper.Application.Services
             await _operationsRepository.AddAsync(operation, cancellationToken);
 
             return Result<OperationResponse>.Success
-                    (new OperationResponse(operation.Id, operation.AccountId, operation.CategoryId, operation.Sum, operation.Description,
-                        operation.Date, operation.OldAccountBalance, operation.NewAccountBalance, account.Name, category.Name, category.Type));
+                    (_mapper.Map<OperationResponse>(operation));
         }
     }
 }

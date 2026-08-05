@@ -14,6 +14,7 @@ using FluentValidation;
 using MoneyKeeper.Application.Validators;
 using MoneyKeeper.ExceptionHandlers;
 using MoneyKeeper.Validators;
+using MoneyKeeper.Application.Mappings;
 
 namespace MoneyKeeper.Extensions
 {
@@ -44,6 +45,10 @@ namespace MoneyKeeper.Extensions
             services.AddDbContext<AppDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
             services.AddProblemDetails();
             services.AddExceptionHandler<GlobalExceptionHandler>();
+            services.AddAutoMapper(cfg =>
+            {
+                cfg.AddProfile<FiltersProfile>();
+            });
             return services;
         }
 

@@ -1,8 +1,9 @@
-﻿using MoneyKeeper.Core.Models;
+﻿using MoneyKeeper.Application.Common;
+using MoneyKeeper.Core.Models;
 
 namespace MoneyKeeper.Application.Filters
 {
-    public class AccountFilter : IFilter<Account>
+    public class AccountsFilter : IFilter<Account>
     {
         public decimal? MinBalance { get; set; }
 

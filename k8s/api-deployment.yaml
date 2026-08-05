@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moneykeeper-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moneykeeper-api
+  template:
+    metadata:
+      labels:
+        app: moneykeeper-api
+    spec:
+      containers:
+      - name: api
+        image: moneykeeper-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: JwtOptions__SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: moneykeeper-secrets
+              key: JWT_SECRET
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: moneykeeper-secrets
+              key: SA_PASSWORD
+        - name: ConnectionStrings__DefaultConnection
+          value: "Server=moneykeeper-db;Database=MoneyKeeper;User Id=sa;Password=$(DB_PASSWORD);TrustServerCertificate=true"
+  

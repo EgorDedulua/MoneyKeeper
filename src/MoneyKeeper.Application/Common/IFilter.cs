@@ -1,4 +1,4 @@
-﻿namespace MoneyKeeper.Application.Filters
+﻿namespace MoneyKeeper.Application.Common
 {
     public interface IFilter<T>
     {

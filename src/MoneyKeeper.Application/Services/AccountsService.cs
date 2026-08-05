@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using MoneyKeeper.Application.Common;
@@ -21,14 +22,15 @@ namespace MoneyKeeper.Application.Services
         private readonly IBalanceChangingsService _balanceChangingsService;
         private readonly IValidator<IAccountOwnershipValidationModel> _accountOwnershipValidator;
         private readonly ILogger<AccountsService> _logger;
-
+        private readonly IMapper _mapper;
         public AccountsService(IAccountsRepository accountsRepository, IBalanceChangingsService balanceChangingsService,
-            IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, ILogger<AccountsService> logger)
+            IValidator<IAccountOwnershipValidationModel> accountOwnershipValidator, ILogger<AccountsService> logger, IMapper mapper)
         {
             _accountsRepository = accountsRepository;
             _balanceChangingsService = balanceChangingsService;
             _accountOwnershipValidator = accountOwnershipValidator;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<Result<AccountResponse>> Add(AccountCreationCommand command, CancellationToken cancellationToken)
@@ -52,7 +54,7 @@ namespace MoneyKeeper.Application.Services
             _logger.LogInformation
                 ("Пользователь с id {UserId} создал счёт с id {AccountId} и с именем {AccountName}", command.UserId, account.Id, command.Name);
 
-            return Result<AccountResponse>.Success(new AccountResponse(account.Id, account.Name, account.Balance, account.Target, account.Description, account.CreatedAt));
+            return Result<AccountResponse>.Success(_mapper.Map<AccountResponse>(account));
         }
 
         public async Task<Result<bool>> Delete(AccountDeletionCommand command, CancellationToken cancellationToken)
@@ -72,15 +74,7 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<PagedResult<AccountResponse>>> GetAll(AccountQueryParameters parameters, int userId, CancellationToken cancellationToken)
         {
-            AccountFilter filter = new AccountFilter
-            {
-                MinBalance = parameters.MinBalance,
-                MaxBalance = parameters.MaxBalance,
-                FromDate = parameters.FromDate,
-                ToDate = parameters.ToDate,
-                NameSubstring = parameters.NameSubstring,
-                HasTargetedBalance = parameters.HasTargetedBalance
-            };
+            AccountsFilter filter = _mapper.Map<AccountsFilter>(parameters);
 
             IQueryable<Account> query = _accountsRepository.GetAllByUserId(userId);
             query = filter.ApplyTo(query);
@@ -89,9 +83,7 @@ namespace MoneyKeeper.Application.Services
             var (items, totalCount) = await _accountsRepository
                 .GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
-            List<AccountResponse> responseItems = items
-                .Select(a => new AccountResponse(a.Id, a.Name, a.Balance, a.Target, a.Description, a.CreatedAt))
-                .ToList();
+            List<AccountResponse> responseItems = _mapper.Map<List<AccountResponse>>(items);
 
             return Result<PagedResult<AccountResponse>>.Success
                 (new PagedResult<AccountResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
@@ -135,7 +127,7 @@ namespace MoneyKeeper.Application.Services
                 ("Пользователь с id {UserId} обновил счёт с id {AccountId}", command.UserId, command.AccountId);
 
             return Result<AccountResponse>.Success
-                (new AccountResponse(updatedAccount.Id, updatedAccount.Name, updatedAccount.Balance, updatedAccount.Target, updatedAccount.Description, updatedAccount.CreatedAt));
+                (_mapper.Map<AccountResponse>(updatedAccount));
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using MoneyKeeper.Application.Common;
@@ -20,14 +21,15 @@ namespace MoneyKeeper.Application.Services
         private readonly IOperationsRepository _operationsRepository;
         private readonly IValidator<ICategoryOwnershipValidationModel> _categoryOwnershipValidator;
         private readonly ILogger<CategoriesService> _logger;
-
+        private readonly IMapper _mapper;
         public CategoriesService(ICategoriesRepository categoriesRepository, IValidator<ICategoryOwnershipValidationModel> categoryOwnershipValidator
-            , ILogger<CategoriesService> logger, IOperationsRepository operationsRepository)
+            , ILogger<CategoriesService> logger, IOperationsRepository operationsRepository, IMapper mapper)
         {
             _categoriesRepository = categoriesRepository;
             _operationsRepository = operationsRepository;
             _categoryOwnershipValidator = categoryOwnershipValidator;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<Result<CategoryResponse>> Add(CategoryCreationCommand command, CancellationToken cancellationToken)
@@ -49,7 +51,7 @@ namespace MoneyKeeper.Application.Services
             await _categoriesRepository.AddAsync(category, cancellationToken);
             _logger.LogInformation("Пользователь с id {UserId} создал категорию с id {CategoryId} и с именем {CategoryName}", command.UserId, category.Id, command.Name);
 
-            return Result<CategoryResponse>.Success(new CategoryResponse(category.Id, category.Name, category.Description, category.Type));
+            return Result<CategoryResponse>.Success(_mapper.Map<CategoryResponse>(category));
         }
 
         public async Task<Result<bool>> Delete(CategoryDeletionCommand command, CancellationToken cancellationToken)
@@ -75,11 +77,7 @@ namespace MoneyKeeper.Application.Services
 
         public async Task<Result<PagedResult<CategoryResponse>>> GetAll(CategoryQueryParameters parameters, int userId, CancellationToken cancellationToken)
         {
-            CategoryFilter filter = new CategoryFilter
-            {
-                IsOnlyIncome = parameters.IsOnlyIncome,
-                NameSubstring = parameters.NameSubstring,
-            };
+            CategoriesFilter filter = _mapper.Map<CategoriesFilter>(parameters);
 
             IQueryable<Category> query = _categoriesRepository.GetAllByUserId(userId);
             query = filter.ApplyTo(query);
@@ -88,9 +86,7 @@ namespace MoneyKeeper.Application.Services
             var (items, totalCount) = await _categoriesRepository
                 .GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
-            List<CategoryResponse> responseItems = items
-                .Select(c => new CategoryResponse(c.Id, c.Name, c.Description, c.Type))
-                .ToList();
+            List<CategoryResponse> responseItems = _mapper.Map<List<CategoryResponse>>(items);
 
             return Result<PagedResult<CategoryResponse>>.Success
                 (new PagedResult<CategoryResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
@@ -127,7 +123,7 @@ namespace MoneyKeeper.Application.Services
             Category updatedCategory = await _categoriesRepository.UpdateAsync(category, cancellationToken);
             _logger.LogInformation("Пользователь с id {UserId} обновил категорию с id {CategoryId}", command.UserId, command.CategoryId);
 
-            return Result<CategoryResponse>.Success(new CategoryResponse(category.Id, category.Name, category.Description, category.Type));
+            return Result<CategoryResponse>.Success(_mapper.Map<CategoryResponse>(updatedCategory));
         }
     }
 }

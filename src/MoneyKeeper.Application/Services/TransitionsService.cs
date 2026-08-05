@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using AutoMapper;
+using FluentValidation;
 using FluentValidation.Results;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
@@ -23,11 +24,12 @@ namespace MoneyKeeper.Application.Services
         private readonly IOperationsRepository _operationsRepository;
         private readonly IValidator<ITransitionAccountsValidationModel> _transitionAccountsValidator;
         private readonly IValidator<ITransitionOwnershipValidationModel> _transitionOwnershipValidator;
+        private readonly IMapper _mapper;
 
         public TransitionsService(ITransitionsRepository transitionsRepository, IAccountsRepository accountsRepository,
             IUnitOfWork unitOfWork, ICommonBalanceOperationsRepository commonBalanceOperationsRepository, IBalanceChangingsRepository balanceChangingsRepository,
             IOperationsRepository operationsRepository, IValidator<ITransitionAccountsValidationModel> transitionAccountsValidator,
-            IValidator<ITransitionOwnershipValidationModel> transitionOwnershipValidator)
+            IValidator<ITransitionOwnershipValidationModel> transitionOwnershipValidator, IMapper mapper)
         {
             _transitionsRepository = transitionsRepository;
             _accountsRepository = accountsRepository;
@@ -37,6 +39,7 @@ namespace MoneyKeeper.Application.Services
             _operationsRepository = operationsRepository;
             _transitionAccountsValidator = transitionAccountsValidator;
             _transitionOwnershipValidator = transitionOwnershipValidator;
+            _mapper = mapper;
         }
 
         public async Task<Result<TransitionResponse>> Add(TransitionCreationCommand command, CancellationToken cancellationToken)
@@ -140,15 +143,7 @@ namespace MoneyKeeper.Application.Services
                 return Result<PagedResult<TransitionResponse>>.Success
                     (new PagedResult<TransitionResponse>(new List<TransitionResponse>(), 0, parameters.Page, parameters.PageSize));
 
-            TransitionsFilter filter = new TransitionsFilter()
-            {
-                SourceAccountIds = requestedSourceAccountIds,
-                DestinationAccountIds = requestedDestinationAccountIds,
-                MinSum = parameters.MinSum,
-                MaxSum = parameters.MaxSum,
-                FromDate = parameters.FromDate,
-                ToDate = parameters.ToDate,
-            };
+            TransitionsFilter filter = _mapper.Map<TransitionsFilter>(parameters);
 
             IQueryable<Transition> query = _transitionsRepository.GetAllByUserId(userId);
             query = filter.ApplyTo(query);
@@ -157,10 +152,7 @@ namespace MoneyKeeper.Application.Services
             var (items, totalCount) = await _transitionsRepository
                 .GetAllPagedAsync(query, parameters.Page, parameters.PageSize, cancellationToken);
 
-            List<TransitionResponse> responseItems = items
-                .Select(t => new TransitionResponse(t.Id, t.SourceAccountId, t.DestinationAccountId, t.SourceAccount.Name, t.DestinationAccount.Name,
-                    t.Sum, t.Description, t.OldSourceAccountBalance, t.NewSourceAccountBalance, t.OldDestinationAccountBalance, t.NewDestinationAccountBalance, t.Date))
-                .ToList();
+            List<TransitionResponse> responseItems = _mapper.Map<List<TransitionResponse>>(items);
 
             return Result<PagedResult<TransitionResponse>>.Success
                 (new PagedResult<TransitionResponse>(responseItems, totalCount, parameters.Page, parameters.PageSize));
@@ -280,9 +272,7 @@ namespace MoneyKeeper.Application.Services
                     await _unitOfWork.CommitTransactionAsync();
 
                     return Result<TransitionResponse>.Success
-                        (new TransitionResponse(updatedTransition.Id, updatedTransition.SourceAccountId, updatedTransition.DestinationAccountId, sourceAccount.Name,
-                            destinationAccount.Name, updatedTransition.Sum, updatedTransition.Description, updatedTransition.OldSourceAccountBalance, updatedTransition.NewSourceAccountBalance,
-                            updatedTransition.OldDestinationAccountBalance, updatedTransition.NewDestinationAccountBalance, updatedTransition.Date));
+                        (_mapper.Map<TransitionResponse>(updatedTransition));
                 }
             }
             catch
@@ -323,9 +313,7 @@ namespace MoneyKeeper.Application.Services
             await _transitionsRepository.AddAsync(transition, cancellationToken);
 
             return Result<TransitionResponse>.Success
-                (new TransitionResponse(transition.Id, transition.SourceAccountId, transition.DestinationAccountId, sourceAccount.Name,
-                    destinationAccount.Name, sum, description, oldSourceAccountBalance, transition.NewSourceAccountBalance, oldDestinationAccountBalance,
-                        transition.NewDestinationAccountBalance, transition.Date));
+                (_mapper.Map<TransitionResponse>(transition));
         }
     }
 }

@@ -1,8 +1,9 @@
-﻿using MoneyKeeper.Core.Models;
+﻿using MoneyKeeper.Application.Common;
+using MoneyKeeper.Core.Models;
 
 namespace MoneyKeeper.Application.Filters
 {
-    public class OperationFilter : IFilter<Operation>
+    public class OperationsFilter : IFilter<Operation>
     {
         public List<int> AccountIds { get; set; } = [];
 

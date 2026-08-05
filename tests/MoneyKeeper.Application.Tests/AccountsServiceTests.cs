@@ -1,11 +1,14 @@
-﻿using FluentAssertions;
+﻿using AutoMapper;
+using FluentAssertions;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Services;
 using MoneyKeeper.Application.Common.Validation;
 using MoneyKeeper.Application.Contracts.Account;
 using MoneyKeeper.Application.Contracts.BalanceChanging;
+using MoneyKeeper.Application.Mappings;
 using MoneyKeeper.Application.Services;
 using MoneyKeeper.Application.Sorting;
 using MoneyKeeper.Core.Common;
@@ -24,6 +27,21 @@ namespace MoneyKeeper.Application.Tests
         private readonly Mock<IBalanceChangingsService> _balanceChangingsServiceMock = new();
         private readonly Mock<IValidator<IAccountOwnershipValidationModel>> _accountOwnershipValidatorMock = new();
         private readonly Mock<ILogger<AccountsService>> _loggerMock = new();
+        private readonly IMapper _mapper;
+
+        public AccountsServiceTests()
+        {
+            MapperConfiguration config = new MapperConfiguration(
+                cfg =>
+                {
+                    cfg.AddProfile<FiltersProfile>();
+                    cfg.AddProfile<ModelsProfile>();
+                },
+                new NullLoggerFactory()
+            );
+
+            _mapper = config.CreateMapper();
+        }
 
         private AccountsService CreateService()
         {
@@ -31,7 +49,8 @@ namespace MoneyKeeper.Application.Tests
                 _accountsRepositoryMock.Object,
                 _balanceChangingsServiceMock.Object,
                 _accountOwnershipValidatorMock.Object,
-                _loggerMock.Object
+                _loggerMock.Object,
+                _mapper
             );
         }
 
