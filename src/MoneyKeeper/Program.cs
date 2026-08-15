@@ -3,6 +3,7 @@ using MoneyKeeper.Filters;
 using MoneyKeeper.Infrastructure.Auth;
 using MoneyKeeper.Infrastructure.Data;
 using MoneyKeeper.Middlewares;
+using Serilog;
 
 namespace MoneyKeeper
 {
@@ -12,8 +13,9 @@ namespace MoneyKeeper
         {
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddServices(builder.Configuration);
+            builder.Services.AddDb(builder.Configuration);
             builder.Services.AddAppHealthChecks();
-            builder.AddLogging();
+            builder.UseAppLogging();
             builder.Services.Configure<JwtOptions>(
                 builder.Configuration.GetSection(nameof(JwtOptions)));
             builder.Services.AddAuth(builder.Configuration);
@@ -24,34 +26,20 @@ namespace MoneyKeeper
             builder.Services.AddOpenApi();
 
             var app = builder.Build();
-            using (var scope = app.Services.CreateScope())
-            {
-                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                try
-                {
-                    dbContext.Database.EnsureCreated();                           
-                }
-                catch (Exception ex)
-                {
-                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                    logger.LogError(ex, "Ошибка при применении миграций");
-                    throw;
-                }
-            }
+            app.MigrateDb();
             app.MapAppHealthChecks();
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
             }
             app.UseExceptionHandler();
-            app.UseMiddleware<TraceMiddleware>();
+            app.UseMiddleware<LogContextEnrichmentMiddleware>();
+            app.UseAppRequestLogging();
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseAuthorization();
-
-
             app.MapControllers();
-
+            app.Lifetime.ApplicationStopped.Register(Log.CloseAndFlush);
             app.Run();
         }
     }

@@ -42,12 +42,12 @@ namespace MoneyKeeper.Extensions
             services.AddScoped<ITransitionsService,  TransitionsService>();
             services.AddValidatorsFromAssemblyContaining<AccountOwnershipValidator>();
             services.AddValidatorsFromAssemblyContaining<OperationUpsertValidator>();
-            services.AddDbContext<AppDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
             services.AddProblemDetails();
             services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddAutoMapper(cfg =>
             {
                 cfg.AddProfile<FiltersProfile>();
+                cfg.AddProfile<ModelsProfile>();
             });
             return services;
         }

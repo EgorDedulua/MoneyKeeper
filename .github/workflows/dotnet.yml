@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build, test and push docker image
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
     env:
       TEST_DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
@@ -24,7 +24,36 @@ jobs:
         run: dotnet restore MoneyKeeper.slnx
 
       - name: Build
-        run: dotnet build MoneyKeeper.slnx --no-restore
+        run: dotnet build MoneyKeeper.slnx --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test MoneyKeeper.slnx --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test MoneyKeeper.slnx --no-build --verbosity normal --configuration Release
+
+  build-and-push-docker-image:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/moneykeeper-api
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+         username: ${{ secrets.DOCKER_USERNAME }}
+         password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
