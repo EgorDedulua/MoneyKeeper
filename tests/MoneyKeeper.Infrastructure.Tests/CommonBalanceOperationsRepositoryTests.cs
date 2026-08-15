@@ -294,8 +294,12 @@ namespace MoneyKeeper.Infrastructure.Tests
         [Fact]
         public async Task IsTailValidAfterChange_NoEvents_ReturnsTrue()
         {
-            bool isValid = await _repository.IsTailValidAfterChange(1, DateTime.Now, 0m, CancellationToken.None);
+            User user = await CreateTestUserAsync();
+            Account account = new Account { UserId = user.Id, Name = "NoEventsAcc" };
+            _context.Accounts.Add(account);
+            await _context.SaveChangesAsync();
 
+            bool isValid = await _repository.IsTailValidAfterChange(account.Id, DateTime.Now, 0m, CancellationToken.None);
             isValid.Should().BeTrue();
         }
     }

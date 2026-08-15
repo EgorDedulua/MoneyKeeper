@@ -32,7 +32,7 @@ namespace MoneyKeeper.Infrastructure.Tests
 
             Category? fromDb = await _context.Categories.FirstOrDefaultAsync(c => c.Name == "TestCategory");
             fromDb.Should().NotBeNull();
-            fromDb!.UserId.Should().Be(1);
+            fromDb!.UserId.Should().Be(user.Id);   
             fromDb.Type.Should().Be(CategoryType.Income);
             fromDb.Description.Should().Be("TestDescription");
         }
@@ -84,7 +84,7 @@ namespace MoneyKeeper.Infrastructure.Tests
             _context.Categories.AddRange(category1, category2);
             await _context.SaveChangesAsync();
 
-            IQueryable<Category> categories = _repository.GetAllByUserId(1);
+            IQueryable<Category> categories = _repository.GetAllByUserId(user1.Id);   
             List<Category> result = await categories.ToListAsync();
 
             result.Should().HaveCount(1);
@@ -151,7 +151,8 @@ namespace MoneyKeeper.Infrastructure.Tests
         [Fact]
         public async Task ExistsWithName_NameDoesNotExist_ReturnsFalse()
         {
-            bool exists = await _repository.ExistsWithName("Ghost", 1, CancellationToken.None);
+            User user = await CreateTestUserAsync();
+            bool exists = await _repository.ExistsWithName("Ghost", user.Id, CancellationToken.None);
 
             exists.Should().BeFalse();
         }

@@ -32,7 +32,7 @@ namespace MoneyKeeper.Infrastructure.Tests
 
             Account? fromDb = await _context.Accounts.FirstOrDefaultAsync(a => a.Name == "Test Account");
             fromDb.Should().NotBeNull();
-            fromDb!.UserId.Should().Be(1);
+            fromDb!.UserId.Should().Be(user.Id);  
             fromDb.Balance.Should().Be(100.50m);
             fromDb.Target.Should().Be(500m);
             fromDb.Description.Should().Be("Test Description");
@@ -85,7 +85,7 @@ namespace MoneyKeeper.Infrastructure.Tests
             _context.Accounts.AddRange(account1, account2);
             await _context.SaveChangesAsync();
 
-            IQueryable<Account> accounts = _repository.GetAllByUserId(1);
+            IQueryable<Account> accounts = _repository.GetAllByUserId(user1.Id);   
             List<Account> result = await accounts.ToListAsync();
 
             result.Should().HaveCount(1);
@@ -245,7 +245,8 @@ namespace MoneyKeeper.Infrastructure.Tests
         [Fact]
         public async Task ExistsWithNameAsync_NameDoesNotExist_ReturnsFalse()
         {
-            bool exists = await _repository.ExistsWithNameAsync("Ghost", 1, CancellationToken.None);
+            User user = await CreateTestUserAsync();
+            bool exists = await _repository.ExistsWithNameAsync("Ghost", user.Id, CancellationToken.None);
 
             exists.Should().BeFalse();
         }

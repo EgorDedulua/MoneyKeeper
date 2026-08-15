@@ -115,11 +115,11 @@ namespace MoneyKeeper.Infrastructure.Tests
         [Fact]
         public async Task GetAllByUserId_ReturnsOnlyUserOperations()
         {
-            User user = await CreateTestUserAsync();
+            User user1 = await CreateTestUserAsync();
             User user2 = await CreateTestUserAsync(2);
-            Account account1 = new Account { UserId = user.Id, Name = "U1Acc" };
+            Account account1 = new Account { UserId = user1.Id, Name = "U1Acc" };
             Account account2 = new Account { UserId = user2.Id, Name = "U2Acc" };
-            Category category1 = new Category { UserId = user.Id, Name = "C1", Type = CategoryType.Income };
+            Category category1 = new Category { UserId = user1.Id, Name = "C1", Type = CategoryType.Income };
             Category category2 = new Category { UserId = user2.Id, Name = "C2", Type = CategoryType.Consumption };
             Operation operation1 = new Operation { Account = account1, Category = category1, AccountId = account1.Id, CategoryId = category1.Id, Sum = 10 };
             Operation operation2 = new Operation { Account = account2, Category = category2, AccountId = account2.Id, CategoryId = category2.Id, Sum = 20 };
@@ -128,11 +128,11 @@ namespace MoneyKeeper.Infrastructure.Tests
             _context.Operations.AddRange(operation1, operation2);
             await _context.SaveChangesAsync();
 
-            IQueryable<Operation> operations = _repository.GetAllByUserId(1);
+            IQueryable<Operation> operations = _repository.GetAllByUserId(user1.Id);  
             List<Operation> result = await operations.ToListAsync();
 
             result.Should().HaveCount(1);
-            result[0].Account.UserId.Should().Be(1);
+            result[0].Account.UserId.Should().Be(user1.Id);
         }
 
         [Fact]
@@ -161,7 +161,7 @@ namespace MoneyKeeper.Infrastructure.Tests
         {
             User user = await CreateTestUserAsync();
             Account account = new Account { UserId = user.Id, Name = "UpdAcc" };
-            Category category = new Category { UserId = 1, Name = "UpdCat", Type = CategoryType.Income };
+            Category category = new Category { UserId = user.Id, Name = "UpdCat", Type = CategoryType.Income };   
             Operation operation = new Operation
             {
                 AccountId = account.Id,

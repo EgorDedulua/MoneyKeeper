@@ -145,11 +145,11 @@ namespace MoneyKeeper.Infrastructure.Tests
             _context.Transitions.AddRange(transition1, transition2);
             await _context.SaveChangesAsync();
 
-            IQueryable<Transition> transitions = _repository.GetAllByUserId(1);
+            IQueryable<Transition> transitions = _repository.GetAllByUserId(user1.Id);   
             List<Transition> result = await transitions.ToListAsync();
 
             result.Should().HaveCount(1);
-            result[0].SourceAccount.UserId.Should().Be(1);
+            result[0].SourceAccount.UserId.Should().Be(user1.Id);
         }
 
         [Fact]

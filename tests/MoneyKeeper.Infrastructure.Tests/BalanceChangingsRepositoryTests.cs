@@ -121,11 +121,11 @@ namespace MoneyKeeper.Infrastructure.Tests
             _context.BalanceChangings.AddRange(bc1, bc2);
             await _context.SaveChangesAsync();
 
-            IQueryable<BalanceChanging> changings = _repository.GetAllByUserId(1);
+            IQueryable<BalanceChanging> changings = _repository.GetAllByUserId(user1.Id);   
             List<BalanceChanging> result = await changings.ToListAsync();
 
             result.Should().HaveCount(1);
-            result[0].Account.UserId.Should().Be(1);
+            result[0].Account.UserId.Should().Be(user1.Id);
         }
 
         [Fact]
@@ -169,7 +169,7 @@ namespace MoneyKeeper.Infrastructure.Tests
         public async Task UpdateAsync_ExistingBalanceChanging_UpdatesProperties()
         {
             User user = await CreateTestUserAsync();
-            Account account = new Account { UserId = 1, Name = "UpdAcc" };
+            Account account = new Account { UserId = user.Id, Name = "UpdAcc" };   
             BalanceChanging balanceChanging = new BalanceChanging
             {
                 AccountId = account.Id,
