@@ -7,6 +7,13 @@ namespace MoneyKeeper.Filters
 {
     public class RequestValidationActionFilter : IAsyncActionFilter
     {
+        private readonly IProblemDetailsService _problemDetailsService;
+
+        public RequestValidationActionFilter(IProblemDetailsService problemDetailsService)
+        {
+            _problemDetailsService = problemDetailsService;
+        }
+
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             foreach (var arg in context.ActionArguments.Values)
@@ -25,16 +32,31 @@ namespace MoneyKeeper.Filters
 
                 if (!validationResult.IsValid)
                 {
-                    ValidationFailure firstError = validationResult.Errors.First();
-                    ProblemDetails problem = new ProblemDetails
-                    {
-                        Title = "Ошибка валидации",
-                        Status = 400,
-                        Detail = firstError.ErrorMessage
-                    };
-                    problem.Extensions["errorCode"] = firstError.ErrorCode;
+                    var errors = validationResult.Errors
+                        .GroupBy(e => e.PropertyName)
+                        .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
 
-                    context.Result = new BadRequestObjectResult(problem);
+                    var errorCodes = validationResult.Errors
+                        .GroupBy(e => e.PropertyName)
+                        .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorCode).ToArray());
+
+                    ValidationProblemDetails problemDetails = new ValidationProblemDetails
+                    {
+                        Title = "Validation error",
+                        Errors = errors,
+                        Detail = "Some objects are invalid",
+                        Status = StatusCodes.Status400BadRequest,
+                    };
+
+                    problemDetails.Extensions["errorCodes"] = errorCodes;
+
+                    await _problemDetailsService.WriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = context.HttpContext,
+                        ProblemDetails = problemDetails,
+                    });
+
+                    context.Result = new EmptyResult();
                     return;
                 }
             }

@@ -35,7 +35,7 @@ namespace MoneyKeeper.Controllers
             if (result.IsSuccess)
                 return Ok(result.Value);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpDelete("{balanceChangingId}")]
@@ -48,7 +48,7 @@ namespace MoneyKeeper.Controllers
             if (result.IsSuccess)
                 return NoContent();
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpGet]
@@ -61,7 +61,7 @@ namespace MoneyKeeper.Controllers
             if (result.IsSuccess)
                 return Ok(result.Value);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpPut("{balanceChangingId}")]
@@ -77,7 +77,7 @@ namespace MoneyKeeper.Controllers
             if (result.IsSuccess)
                 return Ok(result.Value);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
     }
 }

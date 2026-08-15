@@ -11,11 +11,9 @@ namespace MoneyKeeper.Infrastructure.Tests
     {
         private CategoriesRepository _repository = null!;
 
-        public override async Task InitializeAsync()
+        public CategoriesRepositoryTests(Common.DbFixture fixture) : base(fixture)
         {
-            await base.InitializeAsync();
             _repository = new CategoriesRepository(_context);
-            await ClearDatabaseAsync();
         }
 
         [Fact]

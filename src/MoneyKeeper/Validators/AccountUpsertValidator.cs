@@ -9,7 +9,6 @@ namespace MoneyKeeper.Validators
         public AccountUpsertValidator() 
         {
             RuleFor(x => x.Name)
-                .Cascade(CascadeMode.Stop)
                 .NotEmpty().WithMessage("Имя счета не может быть пустым").WithErrorCode(ErrorCodes.ACCOUNT_NAME_IS_EMPTY)
                 .MaximumLength(50).WithMessage("Имя счета не может быть длиннее 50 символов").WithErrorCode(ErrorCodes.ACCOUNT_NAME_IS_TOO_LONG);
 
@@ -20,7 +19,6 @@ namespace MoneyKeeper.Validators
                 .GreaterThanOrEqualTo(0).WithMessage("Целевой баланс счета не может быть отрицательным").WithErrorCode(ErrorCodes.INVALID_ACCOUNT_TARGET);
 
             RuleFor(x => x.Description)
-                .Cascade(CascadeMode.Stop)
                 .NotEmpty().When(x => x.Description is not null)
                     .WithMessage("Описание операции не может быть пустым").WithErrorCode(ErrorCodes.ACCOUNT_DESCRIPTION_IS_EMPTY)
                 .MaximumLength(8000).WithMessage("Описание операции не может быть длиннее 8000 символов").WithErrorCode(ErrorCodes.ACCOUNT_DESCRIPTION_IS_TOO_LONG);

@@ -1,16 +1,18 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
 
 namespace MoneyKeeper.ExceptionHandlers
 {
     public class GlobalExceptionHandler : IExceptionHandler
     {
+        private readonly IProblemDetailsService _problemDetailsService;
         private readonly ILogger<GlobalExceptionHandler> _logger;
         private readonly IWebHostEnvironment _environment;
 
-        public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IWebHostEnvironment environment)
+        public GlobalExceptionHandler(IProblemDetailsService problemDetailsService,
+            ILogger<GlobalExceptionHandler> logger, IWebHostEnvironment environment)
         {
+            _problemDetailsService = problemDetailsService;
             _logger = logger;
             _environment = environment;
         }
@@ -18,27 +20,32 @@ namespace MoneyKeeper.ExceptionHandlers
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
         {
             if (exception is OperationCanceledException)
-                return false;
-
-            var traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
-
-            _logger.LogError(exception, "Необработанное исключение. TraceId: {TraceId}", traceId);
-
-            ProblemDetails problemDetails = new ProblemDetails
             {
-                Title = "Неизвестная ошибка",
-                Status = StatusCodes.Status500InternalServerError,
-                Detail = _environment.IsDevelopment() ? exception.ToString() : "Обратитесь в поддержку",
-                Instance = httpContext.Request.Path
-            };
-            problemDetails.Extensions["traceId"] = traceId;
+                if (httpContext.RequestAborted.IsCancellationRequested)
+                {
+                    _logger.LogInformation("Запрос к {Path} был отменён клиентом", httpContext.Request.Path);
+                }
+                else
+                {
+                    _logger.LogWarning(exception, "Таймаут при выполнении запроса к {Path}", httpContext.Request.Path);
+                }
+                return true;
+            }
 
+            _logger.LogError(exception, "Произошло необработанное исключение: {Message}", exception.Message);
             httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            httpContext.Response.ContentType = "application/problem+json";
 
-            await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
-
-            return true;
+            return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = httpContext,
+                Exception = exception,
+                ProblemDetails = new ProblemDetails
+                {
+                    Status = StatusCodes.Status500InternalServerError,
+                    Title = "Internal server error",
+                    Detail = _environment.IsDevelopment() ? exception.ToString() : "Unexpected error"
+                }
+            });
         }
     }
 }

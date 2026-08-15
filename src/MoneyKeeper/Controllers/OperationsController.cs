@@ -39,7 +39,7 @@ namespace MoneyKeeper.Controllers
 
             _logger.LogWarning("Ошибка при получении пользователем с id {UserId} своих операций: {ErrorCode}", userId, result.Error!.ErrorCode);
             
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpPost]
@@ -59,7 +59,7 @@ namespace MoneyKeeper.Controllers
                 "Ошибка добавления операции пользователем {UserId} (счёт {AccountId}, категория {CategoryId}): {ErrorCode}",
                 userId, request.AccountId, request.CategoryId, result.Error!.ErrorCode);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpDelete("{operationId}")]
@@ -76,7 +76,7 @@ namespace MoneyKeeper.Controllers
                 "Ошибка удаления операции {OperationId} пользователем {UserId}: {ErrorCode}",
                 operationId, userId, result.Error!.ErrorCode);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpPut("{operationId}")]
@@ -96,7 +96,7 @@ namespace MoneyKeeper.Controllers
                 "Ошибка обновления операции {OperationId} пользователем {UserId} (счёт {AccountId}): {ErrorCode}",
                 operationId, userId, request.AccountId, result.Error!.ErrorCode);
 
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
     }
 }

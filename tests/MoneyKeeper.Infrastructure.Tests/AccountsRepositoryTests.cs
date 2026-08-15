@@ -10,11 +10,9 @@ namespace MoneyKeeper.Infrastructure.Tests
     {
         private AccountsRepository _repository = null!;
 
-        public override async Task InitializeAsync()
+        public AccountsRepositoryTests(Common.DbFixture fixture) : base(fixture)
         {
-            await base.InitializeAsync();
             _repository = new AccountsRepository(_context);
-            await ClearDatabaseAsync();
         }
 
         [Fact]

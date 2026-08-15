@@ -9,12 +9,10 @@ namespace MoneyKeeper.Validators
         public CategoryUpsertValidator() 
         {
             RuleFor(x => x.Name)
-                .Cascade(CascadeMode.Stop)
                 .NotEmpty().WithMessage("Имя категории не может быть пустым").WithErrorCode(ErrorCodes.CATEGORY_NAME_IS_EMPTY)
                 .MaximumLength(50).WithMessage("Имя категории не может быть длиннее 50 символов").WithErrorCode(ErrorCodes.CATEGORY_NAME_IS_TOO_LONG);
 
             RuleFor(x => x.Description)
-                .Cascade(CascadeMode.Stop)
                 .NotEmpty().When(x => x.Description is not null).WithMessage("Описание категории не может быть пустым")
                     .WithErrorCode(ErrorCodes.CATEGORY_DESCRIPTION_IS_EMPTY)
                 .MaximumLength(8000).WithMessage("Описание категории не может быть длиннее 8000 символов")

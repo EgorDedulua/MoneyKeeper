@@ -39,7 +39,7 @@ namespace MoneyKeeper.Controllers
 
             _logger.LogWarning
                 ("Ошибка регистрации нового пользователя с логином {Login}: {ErrorCode}", request.Login, result.Error!.ErrorCode);
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpPost("login")]
@@ -57,7 +57,7 @@ namespace MoneyKeeper.Controllers
 
             _logger.LogWarning
                 ("Ошибка входа пользователя с логином {Login}: {ErrorCode}", request.Login, result.Error!.ErrorCode);
-            return result.ToErrorActionResult();
+            return result.ToErrorActionResult(this);
         }
 
         [HttpPost("logout")]

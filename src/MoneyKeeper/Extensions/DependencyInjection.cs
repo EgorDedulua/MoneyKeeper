@@ -15,6 +15,7 @@ using MoneyKeeper.Application.Validators;
 using MoneyKeeper.ExceptionHandlers;
 using MoneyKeeper.Validators;
 using MoneyKeeper.Application.Mappings;
+using System.Diagnostics;
 
 namespace MoneyKeeper.Extensions
 {
@@ -42,7 +43,19 @@ namespace MoneyKeeper.Extensions
             services.AddScoped<ITransitionsService,  TransitionsService>();
             services.AddValidatorsFromAssemblyContaining<AccountOwnershipValidator>();
             services.AddValidatorsFromAssemblyContaining<OperationUpsertValidator>();
-            services.AddProblemDetails();
+            services.AddProblemDetails(options =>
+            {
+                options.CustomizeProblemDetails = context =>
+                {
+                    context.ProblemDetails.Extensions["traceId"] =
+                        Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+
+                    if (context.Exception is not null && !context.ProblemDetails.Extensions.ContainsKey("errorCode"))
+                    {
+                        context.ProblemDetails.Extensions["errorCode"] = "UNHANDLED_EXCEPTION";
+                    }
+                };
+            });
             services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddAutoMapper(cfg =>
             {
