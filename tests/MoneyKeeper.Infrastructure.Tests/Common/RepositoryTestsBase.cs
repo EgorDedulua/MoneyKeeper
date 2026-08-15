@@ -23,7 +23,8 @@ namespace MoneyKeeper.Infrastructure.Tests.Common
             string password = Environment.GetEnvironmentVariable("TEST_DB_PASSWORD")
                 ?? throw new InvalidOperationException("TEST_DB_PASSWORD not set");
 
-            _container = new MsSqlBuilder("mssql/server:2022-latest")
+            _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server")
+                .WithEnvironment("ACCEPT_EULA", "Y")
                 .WithPassword(password)
                 .WithAutoRemove(true)
                 .WithCleanUp(true)
