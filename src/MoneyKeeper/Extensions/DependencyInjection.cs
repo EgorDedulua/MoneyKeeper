@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MoneyKeeper.Application.Common;
 using MoneyKeeper.Application.Common.Auth;
@@ -16,6 +15,8 @@ using MoneyKeeper.ExceptionHandlers;
 using MoneyKeeper.Validators;
 using MoneyKeeper.Application.Mappings;
 using System.Diagnostics;
+using MoneyKeeper.Infrastructure.Messaging;
+using MoneyKeeper.Application.Events;
 
 namespace MoneyKeeper.Extensions
 {
@@ -23,10 +24,8 @@ namespace MoneyKeeper.Extensions
     {
         public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
         {
+            services.Configure<RabbitMqSettings>(configuration.GetSection(nameof(RabbitMqSettings)));
             services.AddScoped<IUsersRepository, UsersRepository>();
-            services.AddScoped<IUsersService, UsersService>();
-            services.AddScoped<IPasswordHasher, PasswordHasher>();
-            services.AddScoped<IJwtService, JwtService>();
             services.AddHttpContextAccessor();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IAccountsRepository, AccountsRepository>();
@@ -41,6 +40,8 @@ namespace MoneyKeeper.Extensions
             services.AddScoped<ITransitionsRepository, TransitionsRepository>();
             services.AddScoped<ICommonBalanceOperationsRepository, CommonBalanceOperationsRepository>();
             services.AddScoped<ITransitionsService,  TransitionsService>();
+            services.AddScoped<IInboxRepository, InboxRepository>();
+            services.AddScoped<IUserEventHandler, UserEventHandler>();
             services.AddValidatorsFromAssemblyContaining<AccountOwnershipValidator>();
             services.AddValidatorsFromAssemblyContaining<OperationUpsertValidator>();
             services.AddProblemDetails(options =>
@@ -71,27 +72,17 @@ namespace MoneyKeeper.Extensions
             JwtOptions jwtOptions = configuration.GetSection(nameof(JwtOptions))
                 .Get<JwtOptions>()!;
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.TokenValidationParameters = new TokenValidationParameters()
-                    {
-                        ValidateIssuer = false,
-                        ValidateAudience = false,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes(jwtOptions.SecretKey))
-                    };
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtOptions.ValidIssuer,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true
+                };
+            });
 
-                    options.Events = new JwtBearerEvents
-                    {
-                        OnMessageReceived = context =>
-                        {
-                            context.Token = context.Request.Cookies["tasty-cookies"];
-                            return Task.CompletedTask;
-                        }
-                    };
-                });
             services.AddAuthorization();
             return services;
         }

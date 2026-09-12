@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
 
+    public DbSet<InboxMessage> InboxMessages { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new UserConfiguration());
@@ -31,5 +33,6 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OperationConfiguration());
         modelBuilder.ApplyConfiguration(new TransitionConfiguration());
         modelBuilder.ApplyConfiguration(new BalanceChangingsConfiguration());
+        modelBuilder.ApplyConfiguration(new InboxMessagesConfiguration());
     }
 }

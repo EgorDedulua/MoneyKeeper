@@ -1,7 +1,6 @@
 using MoneyKeeper.Extensions;
 using MoneyKeeper.Filters;
 using MoneyKeeper.Infrastructure.Auth;
-using MoneyKeeper.Infrastructure.Data;
 using MoneyKeeper.Middlewares;
 using Serilog;
 
@@ -13,6 +12,7 @@ namespace MoneyKeeper
         {
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddServices(builder.Configuration);
+            builder.Services.AddRabbitMq();
             builder.Services.AddDb(builder.Configuration);
             builder.Services.AddAppHealthChecks();
             builder.UseAppLogging();

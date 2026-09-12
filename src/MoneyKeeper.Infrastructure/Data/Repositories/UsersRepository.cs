@@ -15,14 +15,22 @@ namespace MoneyKeeper.Infrastructure.Data.Repositories
 
         public async Task AddAsync(User user, CancellationToken cancellationToken)
         {
-            user.CreatedAt = DateTime.Now;
             await _db.Users.AddAsync(user, cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task<User?> GetByLoginAsync(string login, CancellationToken cancellationToken)
+        public async Task DeleteByIdAsync(int id, CancellationToken cancellationToken)
         {
-            return await _db.Users.FirstOrDefaultAsync(u => u.Login == login, cancellationToken);
+            await _db.Users
+                .Where(u => u.Id == id)
+                .ExecuteDeleteAsync();
+        }
+
+        public async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        {
+            return await _db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
     }
 }

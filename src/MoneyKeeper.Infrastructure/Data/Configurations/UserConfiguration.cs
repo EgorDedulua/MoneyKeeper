@@ -8,9 +8,20 @@ namespace MoneyKeeper.Infrastructure.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<User> builder)
         {
-            builder.Property(u => u.Login).HasMaxLength(50);
-            builder.Property(u => u.Password).HasMaxLength(256);
-            builder.Property(u => u.UserName).HasMaxLength(50);
+            builder
+                .HasKey(u => u.Id);
+
+            builder
+                .Property(u => u.Id)
+                .ValueGeneratedNever();
+
+            builder
+                .Property(u => u.Email)
+                .IsRequired();
+
+            builder
+                .HasIndex(u => u.Email)
+                .IsUnique();
         }
     }
 }

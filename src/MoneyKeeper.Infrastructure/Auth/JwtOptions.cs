@@ -2,8 +2,6 @@
 {
     public class JwtOptions
     {
-        public TimeSpan Expires { get; set; }
-
-        public string SecretKey { get; set; } = string.Empty;
+        public string ValidIssuer { get; set; } = "MoneyKeeper.Identity";
     }
 }

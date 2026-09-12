@@ -6,6 +6,8 @@ namespace MoneyKeeper.Core.Common.Repositories
     {
         Task AddAsync(User user, CancellationToken cancellationToken = default);
 
-        Task<User?> GetByLoginAsync(string login, CancellationToken cancellationToken = default);
+        Task DeleteByIdAsync(int id, CancellationToken cancellationToken = default);
+
+        Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     }
 }

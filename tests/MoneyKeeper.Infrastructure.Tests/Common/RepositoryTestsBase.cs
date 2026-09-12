@@ -40,9 +40,7 @@ namespace MoneyKeeper.Infrastructure.Tests.Common
 
             User user = new User
             {
-                Login = $"testuser{userId}",
-                UserName = $"Test User {userId}",
-                Password = "hashed_password"
+                Email = $"testuser{userId}@gmail.com"
             };
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
