@@ -40,6 +40,7 @@ namespace MoneyKeeper.Infrastructure.Tests.Common
 
             User user = new User
             {
+                Id = userId,
                 Email = $"testuser{userId}@gmail.com"
             };
             _context.Users.Add(user);
